@@ -1,0 +1,101 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
+import Button from '../components/Button';
+
+const CartPage = () => {
+    const { cart, removeFromCart, loading } = useCart();
+
+    if (loading && !cart) return <div className="p-8 text-center">Loading cart...</div>;
+
+    const items = cart?.items || [];
+    const total = items.reduce((sum, item) => sum + Number(item.listing.price), 0);
+
+    if (items.length === 0) {
+        return (
+            <div className="container mx-auto px-4 py-16 text-center">
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">Your Cart is Empty</h2>
+                <p className="text-gray-600 mb-8">Looks like you haven't added any books yet.</p>
+                <Link to="/" className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition">
+                    Browse Textbooks
+                </Link>
+            </div>
+        );
+    }
+
+    return (
+        <div className="container mx-auto px-4 py-8">
+            <h1 className="text-2xl font-bold mb-8">Shopping Cart ({items.length} items)</h1>
+
+            <div className="flex flex-col lg:flex-row gap-8">
+                {/* Cart Items List */}
+                <div className="flex-1 space-y-4">
+                    {items.map((item) => (
+                        <div key={item.id} className="flex bg-white p-4 rounded-lg shadow border border-gray-200">
+                            {/* Image */}
+                            <div className="w-24 h-32 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                                {item.listing.textbook?.cover_image ? (
+                                    <img
+                                        src={item.listing.textbook.cover_image}
+                                        alt={item.listing.textbook.title}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-2xl">📚</div>
+                                )}
+                            </div>
+
+                            {/* Details */}
+                            <div className="ml-4 flex-1 flex flex-col justify-between">
+                                <div>
+                                    <h3 className="font-semibold text-gray-900">{item.listing.textbook?.title}</h3>
+                                    <p className="text-sm text-gray-600">{item.listing.textbook?.author}</p>
+                                    <p className="text-xs text-gray-500 mt-1">Condition: {item.listing.condition}</p>
+                                </div>
+
+                                <div className="flex justify-between items-center mt-4">
+                                    <span className="font-bold text-green-600">KSh {item.listing.price}</span>
+                                    <button
+                                        onClick={() => removeFromCart(item.id)}
+                                        className="text-red-500 text-sm hover:underline hover:text-red-700"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Checkout Summary */}
+                <div className="lg:w-80">
+                    <div className="bg-white p-6 rounded-lg shadow border border-gray-200 sticky top-24">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Order Summary</h3>
+
+                        <div className="flex justify-between mb-2">
+                            <span className="text-gray-600">Subtotal</span>
+                            <span className="font-medium">KSh {total.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between mb-4">
+                            <span className="text-gray-600">Delivery</span>
+                            <span className="text-green-600 font-medium">Free</span>
+                        </div>
+
+                        <div className="border-t pt-4 mb-6">
+                            <div className="flex justify-between items-center">
+                                <span className="text-lg font-bold">Total</span>
+                                <span className="text-xl font-bold text-green-600">KSh {total.toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        <Button onClick={() => alert("Book purchased successfully")}>
+                            Checkout
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default CartPage;

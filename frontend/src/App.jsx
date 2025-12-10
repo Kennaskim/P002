@@ -1,0 +1,57 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
+import Layout from './components/Layout';
+
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import HomePage from './pages/HomePage';
+import DashboardPage from './pages/DashboardPage';
+import CreateListingPage from './pages/CreateListingPage';
+import ListingDetailPage from './pages/ListingDetailPage';
+import SchoolsPage from './pages/SchoolsPage';
+import SchoolBookListsPage from './pages/SchoolBookListsPage';
+import BookshopsPage from './pages/BookshopsPage';
+import ChatPage from './pages/ChatPage';
+import CartPage from './pages/CartPage';
+
+
+const PrivateRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <div>Loading...</div>;
+  return user ? children : <Navigate to="/login" />;
+};
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <CartProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+
+            <Route element={<Layout />}>
+              {/* --- PUBLIC ROUTES (Accessible by anyone) --- */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/listings/:id" element={<ListingDetailPage />} />
+              <Route path="/schools" element={<SchoolsPage />} />
+              <Route path="/schools/:schoolId/booklists" element={<SchoolBookListsPage />} />
+              <Route path="/bookshops" element={<BookshopsPage />} />
+
+              {/* --- PRIVATE ROUTES (Must be logged in) --- */}
+              <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+              <Route path="/listings/create" element={<PrivateRoute><CreateListingPage /></PrivateRoute>} />
+              <Route path="/chat" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
+              <Route path="/chat/:conversationId" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
+              <Route path="/cart" element={<PrivateRoute><CartPage /></PrivateRoute>} />
+            </Route>
+          </Routes>
+        </CartProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+
+export default App;

@@ -1,0 +1,84 @@
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import api from '../utils/api';
+import { jwtDecode } from 'jwt-decode';
+
+const AuthContext = createContext();
+
+export const AuthProvider = ({ children }) => {
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+    //check if user is logged in
+    useEffect(() => {
+        const checkAuth = async () => {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                try {
+                    const decoded = jwtDecode(token);
+                    const response = await api.get('auth/me/');
+                    setUser(response.data);
+                } catch (error) {
+                    console.error("Auth check failed", error);
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('refresh_token');
+                }
+            }
+            setLoading(false);
+        };
+        checkAuth();
+    }, []);
+
+    // 2. Login Function
+    const login = async (email, password) => {
+        try {
+            const response = await api.post('auth/login/', { email, password });
+
+            // Save tokens
+            localStorage.setItem('access_token', response.data.access);
+            localStorage.setItem('refresh_token', response.data.refresh);
+
+            // Fetch user details immediately after login
+            const userResponse = await api.get('auth/me/');
+            setUser(userResponse.data);
+
+            return { success: true };
+        } catch (error) {
+            console.error("Login failed", error);
+            return { success: false, error: error.response?.data?.detail || "Login failed" };
+        }
+    };
+
+    // 3. Logout Function
+    const logout = () => {
+        setToken(null);
+        setUser(null);
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        window.location.href = '/login';
+    };
+
+    // 4. Register Function
+    const register = async (userData) => {
+        try {
+            await api.post('auth/register/', userData);
+            return await login(userData.email, userData.password);
+        } catch (error) {
+            return { success: false, error: error.response?.data };
+        }
+    };
+
+    const value = {
+        user,
+        loading,
+        login,
+        logout,
+        register
+    };
+
+    return (
+        <AuthContext.Provider value={value}>
+            {!loading && children}
+        </AuthContext.Provider>
+    );
+};
+
+export const useAuth = () => useContext(AuthContext);
