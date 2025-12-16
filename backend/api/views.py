@@ -5,9 +5,9 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Sum
-from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review
-from .serializers import UserSerializer, RegisterSerializer, TextbookSerializer, ListingSerializer, BookshopProfileSerializer, SchoolProfileSerializer, BookListSerializer, ConversationSerializer, MessageSerializer, CartItemSerializer, CartSerializer, ReviewSerializer
+from django.db.models import Count, Sum, Q
+from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review, SwapRequest
+from .serializers import UserSerializer, RegisterSerializer, TextbookSerializer, ListingSerializer, BookshopProfileSerializer, SchoolProfileSerializer, BookListSerializer, ConversationSerializer, MessageSerializer, CartItemSerializer, CartSerializer, ReviewSerializer, SwapRequestSerializer
 from .permissions import IsOwnerOrReadOnly
 User = get_user_model()
 
@@ -44,9 +44,6 @@ class ListingViewSet(viewsets.ModelViewSet):
     search_fields = ['textbook__title', 'textbook__subject', 'description']
     filterset_fields = ['listing_type', 'condition']
 
-    def perform_create(self, serializer):
-        serializer.save(listed_by=self.request.user) 
-
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.views += 1
@@ -56,17 +53,6 @@ class ListingViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
-        listing_type = serializer.validated_data.get('listing_type')
-
-        # Enforce Security Rule: Only high-rated users can swap
-        if listing_type == 'exchange' and user.rating < 3.5:
-            # If user has no reviews (count 0) but rating 0, they are blocked.
-            # If you want to allow new users (0 reviews) to swap, change logic here.
-            # Current logic: Must have > 3.5 stars.
-            raise ValidationError(
-                {"listing_type": "Security Restriction: You need a rating of 3.5+ to list items for exchange."}
-            )
-            
         serializer.save(listed_by=user)
 
 #my listings viewset for dashboard
@@ -343,3 +329,56 @@ class MyProfileView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+
+# Swapping viewset
+class SwapRequestViewSet(viewsets.ModelViewSet):
+    serializer_class = SwapRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Users can see swaps they sent OR received
+        return SwapRequest.objects.filter(
+            Q(sender=self.request.user) | Q(receiver=self.request.user)
+        ).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        # Automatically set sender and receiver
+        requested_listing = serializer.validated_data['requested_listing']
+        
+        # Validation: You can't swap with yourself
+        if requested_listing.listed_by == self.request.user:
+            raise ValidationError("You cannot swap with yourself.")
+            
+        serializer.save(
+            sender=self.request.user,
+            receiver=requested_listing.listed_by
+        )
+
+    # Action to ACCEPT a swap
+    @action(detail=True, methods=['post'])
+    def accept(self, request, pk=None):
+        swap = self.get_object()
+        
+        # Security: Only the receiver can accept
+        if request.user != swap.receiver:
+            return Response({'error': 'Not authorized'}, status=403)
+            
+        swap.status = 'accepted'
+        swap.save()
+        
+        # Optional: Mark listings as "Pending" or "Swapped" here
+        # swap.requested_listing.is_active = False
+        # swap.requested_listing.save()
+        
+        return Response({'status': 'Swap Accepted'})
+
+    # Action to REJECT a swap
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        swap = self.get_object()
+        if request.user != swap.receiver:
+            return Response({'error': 'Not authorized'}, status=403)
+            
+        swap.status = 'rejected'
+        swap.save()
+        return Response({'status': 'Swap Rejected'})

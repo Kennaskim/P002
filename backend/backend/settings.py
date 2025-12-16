@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_filters',
+    'django_rest_passwordreset',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
@@ -165,3 +166,11 @@ CHANNEL_LAYERS = {
         },
     },
 }
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'kennaskimaita10@gmail.com'
+EMAIL_HOST_PASSWORD = 'roac ygzj ikpt akth'
+DEFAULT_FROM_EMAIL = 'Textbook Exchange <noreply@textbookexchange.com>'
+

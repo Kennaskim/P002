@@ -16,6 +16,8 @@ class User(AbstractUser):
     location = models.CharField(max_length=100)
     rating = models.FloatField(default=0.0)
     review_count = models.IntegerField(default=0)
+    national_id = models.CharField(max_length=15, unique=True, blank=True, null=True) 
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
 #use email for login
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -159,4 +161,59 @@ class CartItem(models.Model):
 
     def __str__(self):
         return f"{self.listing.textbook.title} in {self.cart.user.username}'s cart"
+
+class SwapRequest(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+        ('completed', 'Completed'),
+    )
+
+    # Who is asking?
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_swaps')
+    # Who owns the book being requested?
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_swaps')
+    
+    # The book the sender WANTS
+    requested_listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='swap_requests_received')
+    
+    # The book the sender is OFFERING
+    offered_listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='swap_requests_sent')
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Prevent duplicate requests for the same pair of books
+        unique_together = ('requested_listing', 'offered_listing')
+
+    def __str__(self):
+        return f"{self.sender.username} offers {self.offered_listing.textbook.title} for {self.requested_listing.textbook.title}"
   
+from django.dispatch import receiver
+from django_rest_passwordreset.signals import reset_password_token_created
+from django.core.mail import send_mail
+from django.urls import reverse
+
+@receiver(reset_password_token_created)
+def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
+    # This prints the token to your specific Terminal window
+    print(f"\n\n==========================================")
+    print(f"PASSWORD RESET TOKEN FOR {reset_password_token.user.email}")
+    print(f"Token: {reset_password_token.key}")
+    print(f"==========================================\n\n")
+
+    # This attempts to send the email (if Console backend is set, it prints it too)
+    email_plaintext_message = "Use this token to reset your password: {}".format(reset_password_token.key)
+
+    send_mail(
+        # title:
+        "Password Reset for {title}".format(title="Textbook Exchange"),
+        # message:
+        email_plaintext_message,
+        # from:
+        "noreply@textbookexchange.com",
+        # to:
+        [reset_password_token.user.email]
+    )

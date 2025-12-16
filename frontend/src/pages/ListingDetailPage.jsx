@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import api, { addToCart, findOrCreateConversation, createReview, getUserReviews } from '../utils/api';
+import api, { addToCart, findOrCreateConversation, createReview, getUserReviews, createSwapRequest, getMyListings } from '../utils/api';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -15,6 +15,11 @@ const ListingDetailPage = () => {
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isAddingToCart, setIsAddingToCart] = useState(false);
+
+    //state for swapping
+    const [showSwapModal, setShowSwapModal] = useState(false);
+    const [myListings, setMyListings] = useState([]);
+    const [selectedOfferId, setSelectedOfferId] = useState(null);
 
     // Review Form State
     const [rating, setRating] = useState(5);
@@ -61,7 +66,6 @@ const ListingDetailPage = () => {
         }
     };
 
-    // ... existing handleAddToCart and handleMessageSeller ...
     const handleAddToCart = async () => {
         if (!user) { navigate('/login'); return; }
         setIsAddingToCart(true);
@@ -76,6 +80,35 @@ const ListingDetailPage = () => {
             const response = await findOrCreateConversation(listing.listed_by.id);
             navigate(`/chat/${response.data.id}`);
         } catch (error) { alert("Could not start chat"); }
+    };
+    const handleOpenSwapModal = async () => {
+        if (!user) {
+            alert("Please login to swap.");
+            return;
+        }
+        try {
+            const res = await getMyListings();
+            // Filter only active books that belong to me
+            const available = (res.data.results || res.data).filter(l => l.is_active);
+            setMyListings(available);
+            setShowSwapModal(true);
+        } catch (err) {
+            alert("Failed to load your inventory.");
+        }
+    };
+
+    const handleSubmitSwap = async () => {
+        if (!selectedOfferId) return alert("Select a book to offer!");
+        try {
+            await createSwapRequest({
+                requested_listing_id: listing.id,
+                offered_listing_id: selectedOfferId
+            });
+            alert("Swap Request Sent! Wait for the seller to accept.");
+            setShowSwapModal(false);
+        } catch (err) {
+            alert("Failed to send request. You may have already requested this.");
+        }
     };
 
     if (loading) return <div className="p-8 text-center">Loading...</div>;
@@ -160,21 +193,48 @@ const ListingDetailPage = () => {
                 <div className="lg:col-span-1">
                     <div className="bg-white p-6 rounded-lg shadow sticky top-24">
                         <div className="text-3xl font-bold text-green-600 mb-2">
-                            KSh {listing.price}
+                            {listing.price > 0 ? `KSh ${listing.price}` : 'Exchange'}
                         </div>
                         <div className="text-gray-600 mb-6">
-                            Sold by <span className="font-bold text-gray-900">{listed_by.username}</span>
-                            <div className="text-sm text-yellow-600 mt-1">
-                                ★ {listed_by.rating.toFixed(1)} ({listed_by.review_count} reviews)
+                            <p>Sold by <span className="font-bold text-gray-900">{listed_by.username}</span></p>
+
+                            {/* Seller Location & Phone */}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {listed_by.location && (
+                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full border flex items-center gap-1">
+                                        📍 {listed_by.location}
+                                    </span>
+                                )}
+                                {user && listed_by.phone_number && (
+                                    <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full border border-green-200 flex items-center gap-1">
+                                        📞 {listed_by.phone_number}
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="text-sm text-yellow-600 mt-2">
+                                ★ {listed_by.rating ? listed_by.rating.toFixed(1) : "0.0"} ({listed_by.review_count} reviews)
                             </div>
                         </div>
 
                         <div className="space-y-3">
-                            {user?.id !== listed_by.id && (
-                                <Button onClick={handleMessageSeller}>Message Seller</Button>
+                            {/* Swap Button (If Exchange) */}
+                            {listing.listing_type === 'exchange' && user?.id !== listed_by.id && (
+                                <Button onClick={handleOpenSwapModal} className="bg-purple-600 hover:bg-purple-700 text-white w-full mb-2 rounded-2xl">
+                                    ⇄ Propose Swap
+                                </Button>
                             )}
+
+                            {/* Message Seller */}
+                            {user?.id !== listed_by.id && (
+                                <Button onClick={handleMessageSeller} variant="secondary" className="w-full bg-green-600 hover:bg-green-700 rounded-2xl">
+                                    Message Seller
+                                </Button>
+                            )}
+
+                            {/* Add to Cart (If Sell) */}
                             {user?.id !== listed_by.id && listing.listing_type === 'sell' && (
-                                <Button variant="secondary" onClick={handleAddToCart} disabled={isAddingToCart}>
+                                <Button variant="secondary" onClick={handleAddToCart} disabled={isAddingToCart} className="w-full bg-gray-400 hover:bg-gray-500 rounded-2xl">
                                     {isAddingToCart ? 'Adding...' : 'Add to Cart'}
                                 </Button>
                             )}
@@ -182,6 +242,39 @@ const ListingDetailPage = () => {
                     </div>
                 </div>
             </div>
+
+            {/* --- Swap Modal --- */}
+            {showSwapModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg w-full max-w-md">
+                        <h3 className="text-xl font-bold mb-4">Select a book to offer</h3>
+
+                        {myListings.length === 0 ? (
+                            <p className="text-gray-500 mb-4">You have no active listings to swap. List a book first!</p>
+                        ) : (
+                            <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
+                                {myListings.map(myBook => (
+                                    <div
+                                        key={myBook.id}
+                                        onClick={() => setSelectedOfferId(myBook.id)}
+                                        className={`p-3 border rounded cursor-pointer ${selectedOfferId === myBook.id ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'}`}
+                                    >
+                                        <p className="font-bold">{myBook.textbook.title}</p>
+                                        <p className="text-xs text-gray-500">{myBook.condition}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="flex gap-2">
+                            <Button onClick={() => setShowSwapModal(false)} variant="secondary" className="flex-1 bg-gray-600 hover:bg-gray-700">Cancel</Button>
+                            {myListings.length > 0 && (
+                                <Button onClick={handleSubmitSwap} className="flex-1 bg-green-600 hover:bg-green-700">Send Offer</Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

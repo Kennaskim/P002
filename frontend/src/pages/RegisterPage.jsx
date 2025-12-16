@@ -8,6 +8,8 @@ const RegisterPage = () => {
     const [formData, setFormData] = useState({
         email: '',
         username: '',
+        national_id: '',
+        phone_number: '',
         password: '',
         user_type: 'parent',
         location: ''
@@ -26,7 +28,7 @@ const RegisterPage = () => {
         const result = await register(formData);
 
         if (result.success) {
-            navigate('/');
+            navigate('/login');
         } else {
             // API might return an object of errors (e.g. {email: ["Invalid email"]})
             setError(result.error);
@@ -70,6 +72,23 @@ const RegisterPage = () => {
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         error={getError('email')}
+                        required
+                    />
+                    <Input
+                        label="National ID"
+                        type="text"
+                        value={formData.national_id}
+                        onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
+                        error={getError('national_id')}
+                        required
+                    />
+                    <Input
+                        label="Phone Number"
+                        type="tel"
+                        placeholder="e.g. 0712345678"
+                        value={formData.phone_number}
+                        onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                        error={getError('phone_number')}
                         required
                     />
 

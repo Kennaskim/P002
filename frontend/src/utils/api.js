@@ -39,6 +39,11 @@ export const getSchoolBookLists = (schoolId) => api.get(`schools/${schoolId}/boo
 export const getMyListings = () => api.get('my-listings/');
 export const getMyProfile = () => api.get('auth/user/');
 export const updateListing = (id, data) => api.patch(`listings/${id}/`, data);
+
+//Password Rest
+export const requestPasswordReset = (email) => api.post('password_reset/', { email });
+export const confirmPasswordReset = (data) => api.post('password_reset/confirm/', data);
+
 // School and Booskshop features
 export const getMyBookLists = () => api.get('my-booklists/');
 export const createBookList = (data) => api.post('my-booklists/', data);
@@ -64,5 +69,11 @@ export const removeFromCart = (cartItemId) => { return api.delete('cart/', { dat
 // --- Reviews ---
 export const createReview = (data) => api.post('reviews/', data);
 export const getUserReviews = (userId) => api.get(`users/${userId}/reviews/`);
+
+// --- Swap Requests ---
+export const getMySwaps = () => api.get('swaps/');
+export const createSwapRequest = (data) => api.post('swaps/', data);
+export const acceptSwap = (id) => api.post(`swaps/${id}/accept/`);
+export const rejectSwap = (id) => api.post(`swaps/${id}/reject/`);
 
 export default api;

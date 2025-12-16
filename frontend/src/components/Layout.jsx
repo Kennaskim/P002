@@ -44,7 +44,6 @@ const Layout = () => {
                                     </Link>
 
                                     <div className="flex items-center gap-3 ml-4 border-l pl-4 border-green-500">
-                                        {/* 👇 THIS IS THE FIX: Make the username a link to Dashboard */}
                                         <Link
                                             to="/dashboard"
                                             className="text-sm font-medium hidden sm:block hover:underline flex items-center gap-2"

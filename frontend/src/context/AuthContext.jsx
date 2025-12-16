@@ -6,6 +6,7 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [token, setToken] = useState(localStorage.getItem('access_token'));
     const [loading, setLoading] = useState(true);
     //check if user is logged in
     useEffect(() => {
@@ -53,6 +54,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
+        delete api.defaults.headers.Authorization;
         window.location.href = '/login';
     };
 

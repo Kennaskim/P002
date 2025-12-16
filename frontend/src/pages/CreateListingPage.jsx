@@ -4,6 +4,10 @@ import api from '../utils/api';
 import Input from '../components/Input';
 import Button from '../components/Button';
 
+const GENERIC_SUBJECTS = ['Dictionary', 'Kamusi', 'Bible', 'Atlas', 'Encyclopedia', 'Storybook', 'Reference'];
+const ACADEMIC_SUBJECTS = ['Mathematics', 'English', 'Kiswahili', 'Science & Technology', 'Social Studies', 'Agriculture', 'Home Science', 'Creative Arts', 'Computer Science', 'Religious Education', 'Music'];
+const GRADES = ['PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9'];
+
 const CreateListingPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
@@ -23,7 +27,6 @@ const CreateListingPage = () => {
         subject: 'Mathematics'
     });
 
-    // Load existing textbooks on mount
     useEffect(() => {
         api.get('textbooks/').then(res => {
             const data = res.data.results || res.data;
@@ -33,6 +36,21 @@ const CreateListingPage = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    // Special handler for Subject to toggle Grade visibility
+    const handleSubjectChange = (e) => {
+        const subject = e.target.value;
+        let grade = formData.grade;
+
+        // If a generic subject is picked, force grade to 'General'
+        if (GENERIC_SUBJECTS.includes(subject)) {
+            grade = 'General';
+        } else if (grade === 'General') {
+            grade = 'Grade 1'; // Reset to a default grade if switching back
+        }
+
+        setFormData({ ...formData, subject, grade });
     };
 
     const handleSubmit = async (e) => {
@@ -53,22 +71,29 @@ const CreateListingPage = () => {
                 finalTextbookId = textbookRes.data.id;
             }
 
-            // 2. Create the Listing linked to that Textbook ID
+            // 2. Create the Listing
+            // 👇 FIX: Default price to 0 if it is empty or if it is an Exchange
+            let finalPrice = formData.price;
+            if (formData.listing_type === 'exchange' || !finalPrice) {
+                finalPrice = 0;
+            }
+
             await api.post('listings/', {
                 textbook_id: finalTextbookId,
-                price: formData.price,
+                price: finalPrice,
                 condition: formData.condition,
                 listing_type: formData.listing_type,
                 description: formData.description
             });
 
-            navigate('/'); // Success! Go home.
+            navigate('/'); // Success!
         } catch (error) {
             console.error(error);
-            // Check if the backend sent a specific error for "listing_type"
-            const errorMsg = error.response?.data?.listing_type
-                ? error.response.data.listing_type[0]
-                : "Failed to create listing. Please check your inputs.";
+            const errorData = error.response?.data;
+            // Show smarter error message
+            let errorMsg = "Failed to create listing.";
+            if (errorData?.price) errorMsg = "Price is required (enter 0 for free/exchange).";
+            else if (errorData?.listing_type) errorMsg = errorData.listing_type[0];
 
             alert(errorMsg);
         } finally {
@@ -76,6 +101,7 @@ const CreateListingPage = () => {
         }
     };
 
+    const isGeneric = GENERIC_SUBJECTS.includes(formData.subject);
 
     return (
         <div className="max-w-2xl mx-auto py-8 px-4">
@@ -83,7 +109,6 @@ const CreateListingPage = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow">
 
-                {/* Toggle: Select Existing vs Create New */}
                 <div className="flex gap-4 mb-4">
                     <button
                         type="button"
@@ -101,7 +126,6 @@ const CreateListingPage = () => {
                     </button>
                 </div>
 
-                {/* Dynamic Section: Choose Book OR Enter Book Details */}
                 {!isNewBook ? (
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Choose Textbook</label>
@@ -122,26 +146,49 @@ const CreateListingPage = () => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded">
-                        <Input label="Book Title" name="title" value={formData.title} onChange={handleChange} required={isNewBook} />
-                        <Input label="Author" name="author" value={formData.author} onChange={handleChange} />
+                        <div className="md:col-span-2">
+                            <Input label="Book Title" name="title" value={formData.title} onChange={handleChange} required={isNewBook} placeholder="e.g. Oxford Advanced Dictionary" />
+                        </div>
+                        <div className="md:col-span-2">
+                            <Input label="Author / Publisher" name="author" value={formData.author} onChange={handleChange} placeholder="e.g. Oxford University Press" />
+                        </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Grade</label>
-                            <select name="grade" value={formData.grade} onChange={handleChange} className="w-full border rounded p-2">
-                                {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'].map(g => <option key={g} value={g}>{g}</option>)}
+                        {/* Subject Selection */}
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Category / Subject</label>
+                            <select
+                                name="subject"
+                                value={formData.subject}
+                                onChange={handleSubjectChange}
+                                className="w-full border rounded p-2 focus:ring-green-500 focus:border-green-500"
+                            >
+                                <optgroup label="General / Reference">
+                                    {GENERIC_SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                </optgroup>
+                                <optgroup label="Academic Subjects">
+                                    {ACADEMIC_SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                </optgroup>
                             </select>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                            <select name="subject" value={formData.subject} onChange={handleChange} className="w-full border rounded p-2">
-                                {['Mathematics', 'English', 'Science', 'Social Studies'].map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
+                        {/* Grade Selection - Hides if Generic */}
+                        {!isGeneric && (
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level</label>
+                                <select name="grade" value={formData.grade} onChange={handleChange} className="w-full border rounded p-2">
+                                    {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                                </select>
+                            </div>
+                        )}
+
+                        {isGeneric && (
+                            <div className="md:col-span-2 p-2 bg-green-50 text-green-700 text-sm rounded border border-green-200">
+                                ✓ This book is marked as <strong>General</strong> and will be visible to all grades.
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* Sales Details (Always Visible) */}
                 <div className="border-t pt-4">
                     <h3 className="font-medium text-gray-900 mb-4">Sales Details</h3>
                     <div className="grid grid-cols-2 gap-4">

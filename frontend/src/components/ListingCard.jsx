@@ -53,7 +53,8 @@ const ListingCard = ({ listing }) => {
                     </div>
 
                     <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
-                        <span>{seller.username}</span>
+                        <span>{seller.username}, 📍{seller.location}</span>
+
                         <span>{listing.created_at ? new Date(listing.created_at).toLocaleDateString() : ''}</span>
                     </div>
                 </div>

@@ -58,6 +58,11 @@ const LoginPage = () => {
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         required
                     />
+                    <div className="flex justify-end mb-4">
+                        <Link to="/forgot-password" className="text-sm text-green-600 hover:underline">
+                            Forgot Password?
+                        </Link>
+                    </div>
 
                     <Button type="submit" loading={loading}>
                         Sign In

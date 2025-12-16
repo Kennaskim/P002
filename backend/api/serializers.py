@@ -1,13 +1,13 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review
+from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review, SwapRequest
 
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'username', 'user_type', 'rating', 'location']
+        fields = ['id', 'email', 'username', 'user_type', 'rating', 'location', 'national_id', 'phone_number']
 
 class RegisterSerializer(serializers.ModelSerializer):
    
@@ -23,7 +23,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             username=validated_data['username'],
             password=validated_data['password'],
             user_type=validated_data.get('user_type', 'parent'),
-            location=validated_data.get('location', '')
+            location=validated_data.get('location', ''),
+            national_id=validated_data.get('national_id', ''),
+            phone_number=validated_data.get('phone_number', '')
         )
         return user
 
@@ -76,7 +78,6 @@ class MessageSerializer(serializers.ModelSerializer):
         fields = ['id', 'sender', 'content', 'timestamp', 'is_read']
 
 class ConversationSerializer(serializers.ModelSerializer):
-    # We want to show the "Other" participant, not the current user
     other_user = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
 
@@ -123,3 +124,26 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = ['id', 'listing', 'reviewer', 'seller', 'rating', 'comment', 'created_at']
         read_only_fields = ('id', 'reviewer', 'seller', 'created_at')
+
+class SwapRequestSerializer(serializers.ModelSerializer):
+    sender = UserSerializer(read_only=True)
+    receiver = UserSerializer(read_only=True)
+    requested_listing = ListingSerializer(read_only=True)
+    offered_listing = ListingSerializer(read_only=True)
+
+    # For creating the request, we only send IDs
+    requested_listing_id = serializers.PrimaryKeyRelatedField(
+        queryset=Listing.objects.all(), source='requested_listing', write_only=True
+    )
+    offered_listing_id = serializers.PrimaryKeyRelatedField(
+        queryset=Listing.objects.all(), source='offered_listing', write_only=True
+    )
+
+    class Meta:
+        model = SwapRequest
+        fields = [
+            'id', 'sender', 'receiver', 'status', 'created_at',
+            'requested_listing', 'offered_listing',
+            'requested_listing_id', 'offered_listing_id'
+        ]
+        read_only_fields = ['id', 'sender', 'receiver', 'status', 'created_at']
