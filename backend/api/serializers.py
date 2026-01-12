@@ -18,14 +18,22 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ['email', 'username', 'password', 'user_type', 'location']
 
     def create(self, validated_data):
+        national_id = validated_data.get('national_id', '')
+        if not national_id:
+            national_id = None
+
+        phone_number = validated_data.get('phone_number', '')
+        if not phone_number:
+            phone_number = None
+
         user = User.objects.create_user(
             email=validated_data['email'],
             username=validated_data['username'],
             password=validated_data['password'],
             user_type=validated_data.get('user_type', 'parent'),
             location=validated_data.get('location', ''),
-            national_id=validated_data.get('national_id', ''),
-            phone_number=validated_data.get('phone_number', '')
+            national_id=national_id,     
+            phone_number=phone_number     
         )
         return user
 
@@ -80,10 +88,11 @@ class MessageSerializer(serializers.ModelSerializer):
 class ConversationSerializer(serializers.ModelSerializer):
     other_user = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
+    listing = ListingSerializer(read_only=True)
 
     class Meta:
         model = Conversation
-        fields = ['id', 'other_user', 'last_message', 'updated_at']
+        fields = ['id', 'other_user', 'last_message', 'updated_at', 'listing']
 
     def get_other_user(self, obj):
         # Find the participant who is NOT the request user

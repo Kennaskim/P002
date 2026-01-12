@@ -107,12 +107,14 @@ class SchoolBookListsView(generics.ListAPIView):
 #conversation viewset
 class ConversationListView(generics.ListAPIView):
     """
-    List all conversations for the current user.
+    List all conversations. 
+    We NO LONGER hide duplicates because each chat is about a different book.
     """
     serializer_class = ConversationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Simply return all my chats, ordered by latest message
         return self.request.user.conversations.all().order_by('-updated_at')
 
 #message viewset
@@ -130,42 +132,45 @@ class MessageListView(generics.ListAPIView):
 #find or create conversation view        
 class FindOrCreateConversationView(APIView):
     """
-    Finds or creates a 1-on-1 conversation based on a target user ID.
+    Finds a chat unique to (Buyer + Seller + Specific Listing).
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         user_id = request.data.get('user_id')
-        if not user_id:
-            return Response({"error": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        listing_id = request.data.get('listing_id') 
+
+        if not user_id or not listing_id:
+            return Response({"error": "user_id and listing_id are required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             other_user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            listing = Listing.objects.get(id=listing_id)
+        except (User.DoesNotExist, Listing.DoesNotExist):
+            return Response({"error": "User or Listing not found."}, status=status.HTTP_404_NOT_FOUND)
 
         if other_user == request.user:
             return Response({"error": "Cannot create conversation with yourself."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # 👇 LOGIC CHANGE: Match User + OtherUser + Listing
         conversation = Conversation.objects.filter(
             participants=request.user
         ).filter(
             participants=other_user
-        ).annotate(
-            num_participants=Count('participants')
         ).filter(
-            num_participants=2
+            listing=listing   # 
         ).first()
 
         if conversation:
             serializer = ConversationSerializer(conversation, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            conversation = Conversation.objects.create()
+            # Create a NEW chat linked to this book
+            conversation = Conversation.objects.create(listing=listing)
             conversation.participants.add(request.user, other_user)
             serializer = ConversationSerializer(conversation, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
+            
 #cart view
 class CartView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -250,7 +255,6 @@ class MyBookListsView(viewsets.ModelViewSet):
              raise ValidationError("You must be a School Account to create book lists.")
         serializer.save(school=self.request.user.school_profile)
 
-    # 👇 THIS ACTION HANDLES THE "MANUAL ADD" FORM
     @action(detail=True, methods=['post'])
     def create_and_add_book(self, request, pk=None):
         book_list = self.get_object()
@@ -359,18 +363,46 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
     def accept(self, request, pk=None):
         swap = self.get_object()
         
-        # Security: Only the receiver can accept
         if request.user != swap.receiver:
             return Response({'error': 'Not authorized'}, status=403)
             
         swap.status = 'accepted'
         swap.save()
         
-        # Optional: Mark listings as "Pending" or "Swapped" here
-        # swap.requested_listing.is_active = False
-        # swap.requested_listing.save()
+        # 1. AUTO-CLOSE: Mark both listings as "Sold" (Inactive)
+        if swap.requested_listing:
+            swap.requested_listing.is_active = False
+            swap.requested_listing.save()
+            
+        if swap.offered_listing:
+            swap.offered_listing.is_active = False
+            swap.offered_listing.save()
         
-        return Response({'status': 'Swap Accepted'})
+        # 2. AUTO-CHAT: Create or Get conversation linked to the requested book
+        conversation = Conversation.objects.filter(
+            participants=swap.sender
+        ).filter(
+            participants=swap.receiver
+        ).filter(
+            listing=swap.requested_listing
+        ).first()
+
+        if not conversation:
+            conversation = Conversation.objects.create(listing=swap.requested_listing)
+            conversation.participants.add(swap.sender, swap.receiver)
+            
+       
+        Message.objects.create(
+            conversation=conversation,
+            sender=request.user,
+            content=f"Hi! I have accepted your swap offer for {swap.requested_listing.textbook.title}. When can we meet?"
+        )
+        
+        
+        return Response({
+            'status': 'Swap Accepted', 
+            'conversation_id': conversation.id 
+        })
 
     # Action to REJECT a swap
     @action(detail=True, methods=['post'])

@@ -77,7 +77,7 @@ const ListingDetailPage = () => {
         if (!user) { navigate('/login'); return; }
         if (listing.listed_by.id === user.id) { alert("Cannot message self"); return; }
         try {
-            const response = await findOrCreateConversation(listing.listed_by.id);
+            const response = await findOrCreateConversation(listing.listed_by.id, listing.id);
             navigate(`/chat/${response.data.id}`);
         } catch (error) { alert("Could not start chat"); }
     };

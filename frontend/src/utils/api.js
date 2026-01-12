@@ -4,6 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 const api = axios.create({
     baseURL: 'http://127.0.0.1:8000/api/',
 });
+
 // Interceptor("middleware")
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('access_token');
@@ -58,9 +59,11 @@ export const createAndAddBook = (listId, bookData) => api.post(`my-booklists/${l
 // --- Chat Exports ---
 export const getConversations = () => api.get('conversations/');
 export const getMessages = (conversationId) => api.get(`conversations/${conversationId}/messages/`);
-export const findOrCreateConversation = (userId) => {
-    return api.post('conversations/find_or_create/', { user_id: userId });
+
+export const findOrCreateConversation = (userId, listingId) => {
+    return api.post('conversations/find_or_create/', { user_id: userId, listing_id: listingId });
 };
+
 // --- Cart Exports ---
 export const getCart = () => api.get('cart/');
 export const addToCart = (listingId) => { return api.post('cart/', { listing_id: listingId }); };

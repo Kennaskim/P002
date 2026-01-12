@@ -56,7 +56,7 @@ const ChatPage = () => {
 
     const handleChatClick = (chat) => {
         setActiveChat(chat);
-        navigate(`/chat/${chat.id}`); // Update URL when clicking sidebar
+        navigate(`/chat/${chat.id}`);
     };
 
     const handleSend = (e) => {
@@ -82,7 +82,15 @@ const ChatPage = () => {
                             onClick={() => handleChatClick(chat)} // Updated handler
                             className={`p-4 border-b cursor-pointer hover:bg-green-50 ${activeChat?.id === chat.id ? 'bg-green-100' : ''}`}
                         >
-                            <div className="font-medium">{chat.other_user?.username || 'Unknown'}</div>
+                            <div className="flex justify-between items-start">
+                                <span className="font-bold">{chat.other_user?.username || 'Unknown'}</span>
+                                <span className="text-xs text-gray-400">{new Date(chat.updated_at).toLocaleDateString()}</span>
+                            </div>
+
+                            <div className="text-xs font-bold text-green-700 mb-1">
+                                {chat.listing?.textbook?.title ? `📘 ${chat.listing.textbook.title}` : "General Chat"}
+                            </div>
+
                             <div className="text-sm text-gray-500 truncate">{chat.last_message}</div>
                         </div>
                     ))}

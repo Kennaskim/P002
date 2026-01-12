@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Textbook, Listing, SchoolProfile, BookshopProfile, BookList, Review, Conversation, Message, Cart, CartItem
+from .models import User, Textbook, Listing, SchoolProfile, BookshopProfile, BookList, Review, Conversation, Message, Cart, CartItem, SwapRequest
 
 # Register the custom User model
 admin.site.register(User, UserAdmin)
@@ -16,3 +16,4 @@ admin.site.register(Conversation)
 admin.site.register(Message)
 admin.site.register(Cart)
 admin.site.register(CartItem)
+admin.site.register(SwapRequest)

@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api, { getMyListings, getConversations, getMyBookLists, deleteBookList, createAndAddBook, addBookToList, removeBookFromList, getMySwaps, acceptSwap, rejectSwap } from '../utils/api';
 
 // --- PARENT DASHBOARD ---
-// 👇 FIX: Add { user } inside the parentheses
 const ParentDashboard = ({ user }) => {
     const [listings, setListings] = useState([]);
     const [conversations, setConversations] = useState([]);
     const [swaps, setSwaps] = useState([]);
+    const navigate = useNavigate();
 
     useEffect(() => {
         getMyListings().then(res => setListings(res.data.results || res.data));
@@ -19,20 +19,23 @@ const ParentDashboard = ({ user }) => {
     const handleSwapAction = async (id, action) => {
         try {
             if (action === 'accept') {
-                await acceptSwap(id);
-                alert("Swap Accepted! Check your messages to coordinate delivery.");
+                const res = await acceptSwap(id);
+                alert("Swap Accepted! Books marked as sold. Redirecting to chat...");
+                if (res.data.conversation_id) {
+                    navigate(`/chat/${res.data.conversation_id}`);
+                }
             } else {
                 await rejectSwap(id);
                 alert("Swap Rejected.");
+                const res = await getMySwaps();
+                setSwaps(res.data);
             }
-            const res = await getMySwaps();
-            setSwaps(res.data);
+
         } catch (err) {
             alert("Action failed.");
         }
     };
 
-    // 👇 These filters will now work because 'user' is available
     const receivedSwaps = swaps.filter(s => s.receiver.id === user.id && s.status === 'pending');
     const mySentSwaps = swaps.filter(s => s.sender.id === user.id);
 
@@ -76,8 +79,8 @@ const ParentDashboard = ({ user }) => {
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm font-medium">To: {swap.receiver.username}</span>
                                             <span className={`text-xs px-2 py-1 rounded font-bold ${swap.status === 'accepted' ? 'bg-green-100 text-green-700' :
-                                                    swap.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                                        'bg-yellow-100 text-yellow-700'
+                                                swap.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                    'bg-yellow-100 text-yellow-700'
                                                 }`}>
                                                 {swap.status.toUpperCase()}
                                             </span>

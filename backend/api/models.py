@@ -123,11 +123,12 @@ class Review(models.Model):
 #conversation model
 class Conversation(models.Model):
     participants = models.ManyToManyField(User, related_name='conversations')
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='conversations', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Conversation {self.id}"
+        return f"Conversation {self.id}-{self.listing}"
 
 #message model
 class Message(models.Model):
@@ -190,6 +191,9 @@ class SwapRequest(models.Model):
 
     def __str__(self):
         return f"{self.sender.username} offers {self.offered_listing.textbook.title} for {self.requested_listing.textbook.title}"
+
+class Order(models.Model):
+    
   
 from django.dispatch import receiver
 from django_rest_passwordreset.signals import reset_password_token_created

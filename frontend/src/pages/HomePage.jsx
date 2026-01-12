@@ -15,12 +15,9 @@ const HomePage = () => {
         const fetchListings = async () => {
             setLoading(true);
             try {
-                // Extract 'q' from URL query params 
                 const searchParams = new URLSearchParams(location.search);
                 const query = searchParams.get('q');
 
-                // Pass the query to the backend as 'search' parameter
-                // Django REST Framework SearchFilter uses '?search=' by default
                 const endpoint = query
                     ? `listings/?search=${encodeURIComponent(query)}`
                     : 'listings/';

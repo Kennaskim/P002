@@ -72,7 +72,6 @@ const CreateListingPage = () => {
             }
 
             // 2. Create the Listing
-            // 👇 FIX: Default price to 0 if it is empty or if it is an Exchange
             let finalPrice = formData.price;
             if (formData.listing_type === 'exchange' || !finalPrice) {
                 finalPrice = 0;
