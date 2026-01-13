@@ -102,6 +102,7 @@ const RegisterPage = () => {
                             <option value="parent">Parent</option>
                             <option value="school">School Administrator</option>
                             <option value="bookshop">Bookshop Owner</option>
+                            <option value="rider">Delivery Rider</option>
                         </select>
                     </div>
 

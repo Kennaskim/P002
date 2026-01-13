@@ -8,6 +8,7 @@ class User(AbstractUser):
         ('parent', 'Parent/Guardian'),
         ('school', 'School Administrator'),
         ('bookshop', 'Bookshop Owner'),
+        ('rider', 'Rider'),
     )
 
 #email as the unique identifier
@@ -193,7 +194,54 @@ class SwapRequest(models.Model):
         return f"{self.sender.username} offers {self.offered_listing.textbook.title} for {self.requested_listing.textbook.title}"
 
 class Order(models.Model):
+    buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    # Link to the specific listing being bought
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE) 
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
     
+    def __str__(self):
+        return f"Order {self.id} - {self.listing.textbook.title}"
+
+class Delivery(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending Payment'),
+        ('paid', 'Processing'),
+        ('shipped', 'In Transit'),
+        ('delivered', 'Delivered'),
+    ]
+    
+    # Delivery can be for a Swap OR an Order
+    swap = models.OneToOneField(SwapRequest, null=True, blank=True, on_delete=models.CASCADE, related_name='delivery')
+    order = models.OneToOneField(Order, null=True, blank=True, on_delete=models.CASCADE, related_name='delivery')
+    
+    # Logistics Info
+    pickup_location = models.CharField(max_length=255) # Seller's location
+    dropoff_location = models.CharField(max_length=255) # Buyer's location
+    rider_phone = models.CharField(max_length=15, blank=True, null=True) # Rider Contact
+    tracking_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # Transport Cost (Standard rate for Nyeri)
+    transport_cost = models.DecimalField(max_digits=10, decimal_places=2, default=250.00) 
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Delivery {self.tracking_code or 'Pending'}"
+
+class Payment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    delivery = models.OneToOneField(Delivery, on_delete=models.CASCADE, related_name='payment')
+    
+    phone_number = models.CharField(max_length=15) # M-Pesa Number
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_code = models.CharField(max_length=50, blank=True, null=True) # e.g. QKD920...
+    is_successful = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Payment {self.transaction_code} - {self.amount}"
   
 from django.dispatch import receiver
 from django_rest_passwordreset.signals import reset_password_token_created

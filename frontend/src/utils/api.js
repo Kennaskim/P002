@@ -79,4 +79,20 @@ export const createSwapRequest = (data) => api.post('swaps/', data);
 export const acceptSwap = (id) => api.post(`swaps/${id}/accept/`);
 export const rejectSwap = (id) => api.post(`swaps/${id}/reject/`);
 
+// --- Delivery & Payments ---
+export const getDelivery = (id) => api.get(`deliveries/${id}/`);
+export const updateDelivery = (id, data) => api.patch(`/deliveries/${id}/`, data);
+export const calculateDeliveryFee = (pickup, dropoff) => {
+    return api.post(`calculate-delivery-fee/`, {
+        pickup: pickup,
+        dropoff: dropoff
+    });
+};
+export const initiateMpesa = (data) => api.post('payments/initiate_mpesa/', data);
+
+// --- Rider Functions ---
+export const getAvailableDeliveries = () => api.get('deliveries/?view=rider');
+export const acceptDeliveryJob = (id) => api.post(`deliveries/${id}/accept_job/`);
+export const completeDeliveryJob = (id) => api.post(`deliveries/${id}/complete_job/`);
+
 export default api;

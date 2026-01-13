@@ -3,12 +3,16 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework import permissions
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum, Q
-from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review, SwapRequest
-from .serializers import UserSerializer, RegisterSerializer, TextbookSerializer, ListingSerializer, BookshopProfileSerializer, SchoolProfileSerializer, BookListSerializer, ConversationSerializer, MessageSerializer, CartItemSerializer, CartSerializer, ReviewSerializer, SwapRequestSerializer
+from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review, SwapRequest, Order, Delivery, Payment
+from .serializers import UserSerializer, RegisterSerializer, TextbookSerializer, ListingSerializer, BookshopProfileSerializer, SchoolProfileSerializer, BookListSerializer, ConversationSerializer, MessageSerializer, CartItemSerializer, CartSerializer, ReviewSerializer, SwapRequestSerializer, OrderSerializer, DeliverySerializer, PaymentSerializer
 from .permissions import IsOwnerOrReadOnly
+import random, string
+from .utils import get_delivery_cost
+
 User = get_user_model()
 
 #register view
@@ -377,6 +381,14 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
         if swap.offered_listing:
             swap.offered_listing.is_active = False
             swap.offered_listing.save()
+
+        Delivery.objects.create(
+        swap=swap,
+        pickup_location=swap.sender.location,  
+        dropoff_location=swap.receiver.location, 
+        transport_cost=250.00,
+        status='pending'
+    )
         
         # 2. AUTO-CHAT: Create or Get conversation linked to the requested book
         conversation = Conversation.objects.filter(
@@ -414,3 +426,139 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
         swap.status = 'rejected'
         swap.save()
         return Response({'status': 'Swap Rejected'})
+
+# Delivery viewset
+class DeliveryViewSet(viewsets.ModelViewSet):
+    queryset = Delivery.objects.all()
+    serializer_class = DeliverySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.query_params.get('view') == 'rider':
+            return Delivery.objects.filter(status__in=['paid', 'shipped']).order_by('-created_at')
+        # Users see deliveries where they are Sender, Receiver, or Buyer
+        return Delivery.objects.filter(
+            Q(order__buyer=self.request.user) | 
+            Q(swap__sender=self.request.user) | 
+            Q(swap__receiver=self.request.user)
+        ).order_by('-created_at')
+    # Rider Accepts a Job
+    @action(detail=True, methods=['post'])
+    def accept_job(self, request, pk=None):
+        delivery = self.get_object()
+        # Change status to 'shipped' (In Transit)
+        delivery.status = 'shipped'
+        delivery.rider_phone = request.user.phone_number or "0700000000" # Save Rider's number
+        delivery.save()
+        
+        return Response({'status': 'Job Accepted', 'tracking_code': delivery.tracking_code})
+
+    # Rider Completes a Job
+    @action(detail=True, methods=['post'])
+    def complete_job(self, request, pk=None):
+        delivery = self.get_object()
+        
+        delivery.status = 'delivered'
+        delivery.save()
+        
+        return Response({'status': 'Job Completed'})
+    
+
+# Order viewset
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        listing_id = request.data.get('listing_id')
+        listing = Listing.objects.get(id=listing_id)
+
+        # 1. Create Order
+        order = Order.objects.create(
+            buyer=request.user,
+            listing=listing,
+            amount_paid=listing.price
+        )
+
+        # 2. Mark item as sold
+        listing.is_active = False
+        listing.save()
+
+        # 3. Create Delivery
+        Delivery.objects.create(
+            order=order,
+            pickup_location=listing.listed_by.location,
+            dropoff_location=request.user.location,
+            transport_cost=0.00,
+            status='pending'
+        )
+
+        serializer = self.get_serializer(order)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+# Payment viewset
+class PaymentViewSet(viewsets.ModelViewSet):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def initiate_mpesa(self, request):
+        """ Simulate M-Pesa Payment """
+        delivery_id = request.data.get('delivery_id')
+        phone = request.data.get('phone_number')
+
+        try:
+            delivery = Delivery.objects.get(id=delivery_id)
+        except Delivery.DoesNotExist:
+            return Response({'error': 'Delivery not found'}, status=404)
+
+        # 1. Create Payment Record
+        payment = Payment.objects.create(
+            user=request.user,
+            delivery=delivery,
+            phone_number=phone,
+            amount=delivery.transport_cost,
+            is_successful=True, 
+            transaction_code=''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+        )
+
+        # 2. Update Delivery Status
+        delivery.status = 'paid'
+        delivery.tracking_code = f"TRK-{random.randint(1000, 9999)}"
+        delivery.save()
+
+        return Response({
+            'status': 'Payment Successful',
+            'transaction_code': payment.transaction_code,
+            'tracking_code': delivery.tracking_code
+        })
+
+# Calculate delivery fee
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def calculate_delivery_fee(request):
+    """
+    Calculates the delivery fee before the user pays.
+    Expected JSON: { "pickup": "Dedan Kimathi", "dropoff": "Nyeri Town" }
+    """
+    pickup = request.data.get('pickup')
+    dropoff = request.data.get('dropoff')
+
+    if not pickup or not dropoff:
+        return Response({'error': 'Both addresses are required'}, status=400)
+
+    cost, distance, pickup_coords, dropoff_coords, route_geometry, error = get_delivery_cost(pickup, dropoff)
+
+    if error:
+        return Response({'error': error}, status=400)
+
+    return Response({
+        'delivery_fee': cost,
+        'distance': distance,
+        'pickup_coords': pickup_coords,
+        'dropoff_coords': dropoff_coords,
+        'route_geometry': route_geometry,
+        'message': f"Distance: {distance}. Cost: KSh {cost}"
+    })

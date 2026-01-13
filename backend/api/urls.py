@@ -4,7 +4,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,  
     TokenRefreshView,            
 )
-from .views import RegisterView, CurrentUserView, TextbookViewSet, ListingViewSet, BookshopViewSet, SchoolViewSet, SchoolBookListsView, ConversationListView, MessageListView, FindOrCreateConversationView, CartView, ReviewViewSet, UserReviewsView, MyListingsView, MyBookListsView, MyProfileView, SwapRequestViewSet
+from .views import RegisterView, CurrentUserView, TextbookViewSet, ListingViewSet, BookshopViewSet, SchoolViewSet, SchoolBookListsView, ConversationListView, MessageListView, FindOrCreateConversationView, CartView, ReviewViewSet, UserReviewsView, MyListingsView, MyBookListsView, MyProfileView, SwapRequestViewSet, DeliveryViewSet, OrderViewSet, PaymentViewSet, calculate_delivery_fee
 #router
 router = DefaultRouter()
 #register viewsets
@@ -15,6 +15,9 @@ router.register(r'schools', SchoolViewSet, basename='school')
 router.register(r'reviews', ReviewViewSet, basename='review')
 router.register(r'my-booklists', MyBookListsView, basename='my-booklists')
 router.register(r'swaps', SwapRequestViewSet, basename='swap')
+router.register(r'orders', OrderViewSet, basename='order')
+router.register(r'payments', PaymentViewSet, basename='payment')
+router.register(r'deliveries', DeliveryViewSet, basename='delivery')
 urlpatterns = [
     path('', include(router.urls)),
     path('schools/<int:school_id>/booklists/', SchoolBookListsView.as_view(), name='school_book_lists'),
@@ -31,4 +34,5 @@ urlpatterns = [
     path('my-listings/', MyListingsView.as_view(), name='my_listings'),
     path('my-profile/', MyProfileView.as_view(), name='my-profile'),
     path('password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
+    path('calculate-delivery-fee/', calculate_delivery_fee, name='calculate_delivery_fee'),
 ]

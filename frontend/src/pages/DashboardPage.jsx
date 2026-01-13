@@ -5,10 +5,44 @@ import api, { getMyListings, getConversations, getMyBookLists, deleteBookList, c
 
 // --- PARENT DASHBOARD ---
 const ParentDashboard = ({ user }) => {
+    const { logout } = useAuth();
     const [listings, setListings] = useState([]);
     const [conversations, setConversations] = useState([]);
     const [swaps, setSwaps] = useState([]);
     const navigate = useNavigate();
+
+    // Riders section
+    if (user && user.user_type === 'rider') {
+        return (
+            <div className="container mx-auto px-4 py-8">
+                <div className="flex justify-between items-center mb-8">
+                    <h1 className="text-3xl font-bold">🏍️ Rider Profile</h1>
+                    <button onClick={logout} className="bg-red-500 text-white px-4 py-2 rounded">Logout</button>
+                </div>
+
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded shadow-md mb-6">
+                    <h2 className="text-xl font-bold text-blue-800 mb-2">Ready to work?</h2>
+                    <p className="text-gray-700 mb-4">
+                        Go to the Rider Job Board to view and accept pending deliveries in your area.
+                    </p>
+                    <button
+                        onClick={() => navigate('/rider')}
+                        className="bg-blue-600 text-white px-6 py-3 rounded font-bold hover:bg-blue-700 transition"
+                    >
+                        Go to Job Board →
+                    </button>
+                </div>
+
+                <div className="bg-white p-6 rounded shadow border">
+                    <h3 className="font-bold text-lg mb-4">My Stats</h3>
+                    <p><strong>Name:</strong> {user.username}</p>
+                    <p><strong>Phone:</strong> {user.phone_number || "Not set"}</p>
+                    <p><strong>Vehicle:</strong> Motorbike</p>
+                    <p className="text-sm text-gray-500 mt-2">*To update details, contact admin.</p>
+                </div>
+            </div>
+        );
+    }
 
     useEffect(() => {
         getMyListings().then(res => setListings(res.data.results || res.data));
@@ -78,6 +112,8 @@ const ParentDashboard = ({ user }) => {
                                     <div key={swap.id} className="border-b pb-2">
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm font-medium">To: {swap.receiver.username}</span>
+
+                                            {/* Status Badge (Only handles color logic) */}
                                             <span className={`text-xs px-2 py-1 rounded font-bold ${swap.status === 'accepted' ? 'bg-green-100 text-green-700' :
                                                 swap.status === 'rejected' ? 'bg-red-100 text-red-700' :
                                                     'bg-yellow-100 text-yellow-700'
@@ -85,9 +121,21 @@ const ParentDashboard = ({ user }) => {
                                                 {swap.status.toUpperCase()}
                                             </span>
                                         </div>
+
                                         <p className="text-xs text-gray-500 mt-1">
                                             You offered: {swap.offered_listing?.textbook?.title}
                                         </p>
+
+                                        {swap.status === 'accepted' && (
+                                            <div className="mt-2">
+                                                <Link
+                                                    to={`/tracking/${swap.delivery?.id}`}
+                                                    className="block w-full text-center bg-blue-600 text-white text-xs py-2 rounded hover:bg-blue-700 font-bold"
+                                                >
+                                                    🚚 Track Delivery
+                                                </Link>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
