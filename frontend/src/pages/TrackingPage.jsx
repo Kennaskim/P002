@@ -1,295 +1,356 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { getDelivery, initiateMpesa, calculateDeliveryFee, updateDelivery } from '../utils/api';
+import { getDelivery, initiateMpesa, calculateDeliveryFee, updateDelivery, cancelDelivery } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 import L from 'leaflet';
 
-// Fix for Leaflet marker icons
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-let DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
-L.Marker.prototype.options.icon = DefaultIcon;
+// --- CONSTANTS ---
+const NYERI_LOCATIONS = [
+    "Nyeri Town", "Ruring'u", "Skuta", "Kamakwa", "King'ong'o", "Nyaribo",
+    "Karatina", "Othaya", "Mukurwe-ini", "Chaka", "Naromoru", "Kiganjo",
+    "Mweiga", "Gatitu", "Marua", "Ihururu", "Giakanja", "Tetuh",
+    "Dedan Kimathi University", "Nyeri PGH", "Mathari", "Mathira",
+    "Endarasha", "Gia-akanja", "Wamagana", "Gakawa"
+].sort();
 
-// Nyeri Coordinates for the Map
 const NYERI_CENTER = [-0.4167, 36.9500];
+
+// --- ICONS ---
+const IconFactory = (emoji) => L.divIcon({
+    html: `<div style="font-size: 24px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));">${emoji}</div>`,
+    className: 'custom-icon',
+    iconSize: [30, 30],
+    iconAnchor: [15, 30]
+});
 
 const TrackingPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     // Data State
     const [delivery, setDelivery] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // User Choices State
-    const [deliveryMode, setDeliveryMode] = useState('delivery'); // 'delivery' or 'meetup'
-    const [newLocation, setNewLocation] = useState(''); // Buyer's location input
-    const [calculatedCost, setCalculatedCost] = useState(null);
-    const [distanceText, setDistanceText] = useState('');
+    // --- EXPLICIT STATE FOR FIELDS (No "My Location" abstraction) ---
+    const [pickup, setPickup] = useState('');
+    const [dropoff, setDropoff] = useState('');
 
-    // Payment State
+    // Calculations
+    const [calculatedCost, setCalculatedCost] = useState(0);
+    const [eta, setEta] = useState(null);
+    const [routePath, setRoutePath] = useState(null);
+    const [geoCoords, setGeoCoords] = useState({ start: null, end: null, rider: null });
+
+    // UI State
     const [paymentPhone, setPaymentPhone] = useState('');
     const [processing, setProcessing] = useState(false);
+    const [deliveryMode, setDeliveryMode] = useState('delivery');
 
-    // Map State
-    const [pickupCoords, setPickupCoords] = useState(null);
-    const [dropoffCoords, setDropoffCoords] = useState(null);
+    // Ref to prevent infinite calculation loops
+    const hasAutoCalculated = useRef(false);
 
+    // --- 1. LOAD DATA ---
     useEffect(() => {
-        loadDelivery();
+        if (!id || id === 'undefined') return navigate('/dashboard');
+
+        const fetchData = async (silent = false) => {
+            if (!silent) setLoading(true);
+            try {
+                const res = await getDelivery(id);
+                const data = res.data;
+                setDelivery(data);
+
+                // Sync inputs only if empty (prevents overwriting user typing)
+                if (!pickup) setPickup(data.pickup_location || '');
+                if (!dropoff) setDropoff(data.dropoff_location || '');
+
+                // Update cost if DB has value
+                if (Number(data.transport_cost) > 0) {
+                    setCalculatedCost(Number(data.transport_cost));
+                }
+
+                // Rider Position
+                if (data.current_lat && data.current_lng) {
+                    setGeoCoords(prev => ({ ...prev, rider: [data.current_lat, data.current_lng] }));
+                }
+
+                // Initial Visual Route
+                if (!hasAutoCalculated.current && data.pickup_location && data.dropoff_location) {
+                    hasAutoCalculated.current = true;
+                    await runCalculation(data.pickup_location, data.dropoff_location, !!data.swap, false, true);
+                }
+
+                if (data.status === 'shipped') {
+                    const baseTime = 15;
+                    setEta(baseTime + Math.round((data.transport_cost / 30) * 2));
+                }
+
+            } catch (err) {
+                console.error(err);
+            } finally {
+                if (!silent) setLoading(false);
+            }
+        };
+
+        fetchData();
+        const interval = setInterval(() => fetchData(true), 5000);
+        return () => clearInterval(interval);
     }, [id]);
 
-    const loadDelivery = () => {
-        getDelivery(id).then(res => {
-            setDelivery(res.data);
-            setCalculatedCost(res.data.transport_cost);
-            setLoading(false);
-        }).catch(err => {
-            alert("Delivery not found");
-            navigate('/dashboard');
-        });
+    // --- 2. PERMISSION LOGIC ---
+    const getPermissions = () => {
+        if (!delivery || !user) return { canEditPickup: false, canEditDropoff: false, role: 'viewer' };
+
+        if (delivery.swap) {
+            // SWAP: Sender edits Pickup, Receiver edits Dropoff
+            if (user.id === delivery.swap.sender) {
+                return { canEditPickup: true, canEditDropoff: false, role: 'Sender (Pickup)' };
+            } else if (user.id === delivery.swap.receiver) {
+                return { canEditPickup: false, canEditDropoff: true, role: 'Receiver (Dropoff)' };
+            }
+        } else {
+            // ORDER: Buyer edits Dropoff, Pickup is fixed (Seller)
+            if (user.id === delivery.orders?.[0]?.buyer) {
+                return { canEditPickup: false, canEditDropoff: true, role: 'Buyer' };
+            }
+        }
+        return { canEditPickup: false, canEditDropoff: false, role: 'Viewer' };
     };
 
-    // --- STEP 1: CALCULATE PRICE ---
-    const handleCalculate = async (e) => {
-        e.preventDefault();
-        if (!newLocation) return alert("Please enter your location");
+    const { canEditPickup, canEditDropoff, role } = getPermissions();
+    const isSwap = !!delivery?.swap;
 
+    // --- 3. CALCULATION HANDLER ---
+    const runCalculation = async (start, end, isSwapMode, saveToDb = false, drawOnly = false) => {
+        try {
+            const res = await calculateDeliveryFee(start, end, isSwapMode);
+
+            if (!drawOnly) {
+                setCalculatedCost(res.data.delivery_fee);
+            }
+
+            setGeoCoords(prev => ({
+                ...prev,
+                start: res.data.pickup_coords,
+                end: res.data.dropoff_coords
+            }));
+
+            if (res.data.route_geometry?.coordinates) {
+                setRoutePath(res.data.route_geometry.coordinates.map(c => [c[1], c[0]]));
+            }
+
+            if (saveToDb) {
+                await updateDelivery(delivery.id, {
+                    pickup_location: start,
+                    dropoff_location: end,
+                    transport_cost: res.data.delivery_fee
+                });
+            }
+        } catch (err) {
+            console.error("Calc Error", err);
+        }
+    };
+
+    const handleUpdateRoute = (e) => {
+        e.preventDefault();
+        setProcessing(true);
+        // Explicitly pass current 'pickup' and 'dropoff' state
+        runCalculation(pickup, dropoff, isSwap, true).finally(() => setProcessing(false));
+    };
+
+    // --- 4. ACTIONS ---
+    const handlePay = async (e) => {
+        e.preventDefault();
         setProcessing(true);
         try {
-            const originAddress = delivery.seller_location || delivery.pickup_location;
-            const res = await calculateDeliveryFee(originAddress, newLocation);
+            if (deliveryMode === 'meetup') {
+                if (confirm("Confirm meetup? Delivery fee will be set to 0.")) {
+                    await updateDelivery(delivery.id, { transport_cost: 0, status: 'pending' });
+                    alert("Meetup Confirmed! Arrange a time in chat.");
+                    setCalculatedCost(0);
+                }
+            } else {
+                if (calculatedCost <= 0) {
+                    setProcessing(false);
+                    return alert("Please click 'Update Route' to calculate price first.");
+                }
 
-            setCalculatedCost(res.data.delivery_fee);
-            setDistanceText(res.data.distance);
-            setPickupCoords(res.data.pickup_coords);
-            setDropoffCoords(res.data.dropoff_coords);
+                // Ensure backend has latest cost
+                await updateDelivery(delivery.id, { transport_cost: calculatedCost });
 
-            // Automatically SAVE this to the database so the price is official
-            await updateDelivery(delivery.id, {
-                dropoff_location: newLocation,
-                transport_cost: res.data.delivery_fee
-            });
-
-            alert(`Distance: ${res.data.distance}\nNew Cost: KSh ${res.data.delivery_fee}`);
-            loadDelivery(); // Refresh data
-
+                await initiateMpesa({ delivery_id: delivery.id, phone_number: paymentPhone });
+                alert("STK Push Sent! Check your phone.");
+            }
         } catch (err) {
-            console.error(err);
-            alert("Could not calculate distance. Try adding 'Nyeri' to the location name.");
+            alert("Action failed: " + (err.response?.data?.error || err.message));
         } finally {
             setProcessing(false);
         }
     };
 
-    // --- STEP 2: SWITCH TO MEETUP ---
-    const handleSwitchToMeetup = async () => {
-        if (window.confirm("Switch to Meetup? Delivery fee will be KSh 0.")) {
-            setDeliveryMode('meetup');
-            setCalculatedCost(0);
-            // Update DB
-            await updateDelivery(delivery.id, {
-                transport_cost: 0.00,
-                status: 'pending' // Keeps it pending until they confirm/meet
-            });
-            loadDelivery();
-        }
+    const handleCancel = async () => {
+        if (!confirm("Cancel this order?")) return;
+        try {
+            await cancelDelivery(delivery.id);
+            navigate('/dashboard');
+        } catch (err) { alert("Failed to cancel."); }
     };
 
-    // --- STEP 3: PAY OR CONFIRM ---
-    const handleProcessOrder = async (e) => {
-        e.preventDefault();
-        setProcessing(true);
-
-        if (calculatedCost <= 0 || deliveryMode === 'meetup') {
-            // FREE / MEETUP FLOW
-            if (delivery.seller_phone) {
-                alert(`MEETUP CONFIRMED!\n\nPlease call ${delivery.seller_name} at: ${delivery.seller_phone}\nto arrange the meetup.`);
-            } else {
-                alert("Meetup Confirmed! Use the Chat feature to agree on a time.");
-            }
-
-            setProcessing(false);
-        } else {
-            // M-PESA FLOW
-            try {
-                const res = await initiateMpesa({
-                    delivery_id: delivery.id,
-                    phone_number: paymentPhone
-                });
-                alert(`Payment Sent! Check your phone. Transaction: ${res.data.transaction_code}`);
-                loadDelivery();
-            } catch (err) {
-                alert("Payment failed. Ensure phone number is valid.");
-            } finally {
-                setProcessing(false);
-            }
-        }
-    };
-
-    if (loading) return <div className="p-8 text-center">Loading Logistics...</div>;
+    if (loading || !delivery) return <div className="flex h-screen items-center justify-center text-gray-500">Loading Logistics...</div>;
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <h1 className="text-2xl font-bold mb-6">📦 Fulfillment & Payment</h1>
+        <div className="min-h-screen bg-gray-50 pb-12">
+            {/* HEADER */}
+            <div className="bg-white border-b sticky top-0 z-20 px-4 py-4 shadow-sm">
+                <div className="container mx-auto flex justify-between items-center">
+                    <div>
+                        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            {isSwap ? <span className="text-purple-600">⇄ Swap Logistics</span> : <span className="text-blue-600">📦 Delivery</span>}
+                        </h1>
+                        <p className="text-xs text-gray-500">Tracking #{delivery.tracking_code || "PENDING"} • Role: {role}</p>
+                    </div>
+                    {delivery.status === 'shipped' && (
+                        <div className="bg-green-100 text-green-800 px-4 py-1 rounded-full text-xs font-bold animate-pulse">
+                            Rider Active • ~{eta} mins away
+                        </div>
+                    )}
+                </div>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* LEFT: Action Section */}
-                <div className="space-y-6">
+            <div className="container mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    {/* 1. STATUS CARD */}
-                    <div className="bg-white p-6 rounded shadow border-l-4 border-blue-500">
-                        <h3 className="font-bold">Status: <span className="uppercase text-blue-600">{delivery.status}</span></h3>
-                        {delivery.tracking_code && <p>Tracking Code: <strong>{delivery.tracking_code}</strong></p>}
+                {/* --- LEFT PANEL: LOGISTICS SETTINGS --- */}
+                <div className="lg:col-span-1 space-y-6">
+
+                    {/* 1. ROUTE CARD */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                        <h3 className="font-bold text-gray-800 mb-6">Route Details</h3>
+
+                        {/* VISUAL TIMELINE */}
+                        <div className="relative pl-4 border-l-2 border-gray-200 ml-2 space-y-8">
+
+                            {/* STEP 1: PICKUP */}
+                            <div className="relative">
+                                <span className={`absolute -left-[21px] top-1 w-4 h-4 rounded-full border-2 border-white ring-1 ring-gray-200 ${canEditPickup ? 'bg-blue-600' : 'bg-gray-400'}`}></span>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
+                                    Step 1: Pickup {canEditPickup ? "(You)" : "(Partner)"}
+                                </label>
+                                <input
+                                    list="nyeri-locations"
+                                    disabled={!canEditPickup}
+                                    value={pickup}
+                                    onChange={e => setPickup(e.target.value)}
+                                    className={`w-full p-2 text-sm border rounded ${!canEditPickup ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white border-blue-300 focus:ring-2 focus:ring-blue-200'}`}
+                                    placeholder="Pickup Town..."
+                                />
+                            </div>
+
+                            {/* SWAP INDICATOR */}
+                            {isSwap && (
+                                <div className="ml-2 text-xs text-purple-600 font-medium py-1 bg-purple-50 inline-block px-2 rounded">
+                                    ⇅ Round Trip (Books Swapped)
+                                </div>
+                            )}
+
+                            {/* STEP 2: DROPOFF */}
+                            <div className="relative">
+                                <span className={`absolute -left-[21px] top-1 w-4 h-4 rounded-full border-2 border-white ring-1 ring-gray-200 ${canEditDropoff ? 'bg-green-600' : 'bg-gray-400'}`}></span>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
+                                    Step 2: Dropoff {canEditDropoff ? "(You)" : "(Partner)"}
+                                </label>
+                                <input
+                                    list="nyeri-locations"
+                                    disabled={!canEditDropoff}
+                                    value={dropoff}
+                                    onChange={e => setDropoff(e.target.value)}
+                                    className={`w-full p-2 text-sm border rounded ${!canEditDropoff ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white border-green-300 focus:ring-2 focus:ring-green-200'}`}
+                                    placeholder="Dropoff Town..."
+                                />
+                            </div>
+                        </div>
+
+                        {/* AUTOCOMPLETE DATALIST */}
+                        <datalist id="nyeri-locations">
+                            {NYERI_LOCATIONS.map(loc => <option key={loc} value={loc} />)}
+                        </datalist>
+
+                        {/* UPDATE BUTTON */}
+                        {(delivery.status === 'pending' || delivery.status === 'paid') && (
+                            <button
+                                onClick={handleUpdateRoute}
+                                disabled={processing}
+                                className="mt-6 w-full bg-gray-900 text-white py-2 rounded-lg text-sm font-bold hover:bg-black transition"
+                            >
+                                {processing ? "Calculating..." : "Update Route & Price"}
+                            </button>
+                        )}
                     </div>
 
-                    {/* 2. CHOICE CARD (Only if Pending) */}
-                    {delivery.status === 'pending' && (
-                        <div className="bg-white p-6 rounded shadow">
-                            <h3 className="font-bold text-lg mb-4">1. Choose Method</h3>
-                            <div className="flex gap-4 mb-4">
-                                <button
-                                    onClick={() => setDeliveryMode('delivery')}
-                                    className={`flex-1 py-2 rounded border ${deliveryMode === 'delivery' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
-                                >
-                                    🚚 Delivery (Paid)
-                                </button>
-                                <button
-                                    onClick={handleSwitchToMeetup}
-                                    className={`flex-1 py-2 rounded border ${deliveryMode === 'meetup' ? 'bg-green-600 text-white' : 'bg-gray-100'}`}
-                                >
-                                    🤝 Meetup (Free)
-                                </button>
+                    {/* 2. PAYMENT CARD */}
+                    {(delivery.status === 'pending' || delivery.status === 'paid') && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <h3 className="font-bold text-gray-800 mb-4">Payment</h3>
+
+                            <div className="flex justify-between items-center mb-4 text-sm">
+                                <span className="text-gray-600">Total Delivery Fee:</span>
+                                <span className="text-xl font-bold text-green-600">KSh {Number(calculatedCost).toFixed(0)}</span>
                             </div>
 
-                            {/* CALCULATOR (Only for Delivery) */}
-                            {deliveryMode === 'delivery' && (
-                                <div className="bg-gray-50 p-4 rounded mb-4">
-                                    <label className="block text-sm font-bold mb-1">Pickup Location (Seller)</label>
-                                    <input
-                                        value={delivery.seller_location || delivery.pickup_location}
-                                        disabled={true}
-                                        className="w-full border p-2 rounded mb-3 bg-gray-200 cursor-not-allowed"
-                                    />
-                                    <label className="block text-sm font-bold mb-1">Your Location (Dropoff)</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            placeholder="e.g. Ruring'u, Nyeri"
-                                            value={newLocation}
-                                            onChange={(e) => setNewLocation(e.target.value)}
-                                            className="w-full border p-2 rounded"
-                                        />
-                                        <button
-                                            onClick={handleCalculate}
-                                            disabled={processing}
-                                            className="bg-gray-800 text-white px-4 rounded"
-                                        >
-                                            {processing ? '...' : 'Calc'}
-                                        </button>
-                                    </div>
-                                    {distanceText && (
-                                        <p className="text-green-600 text-sm mt-2 font-bold">
-                                            ✅ Route Found: {distanceText}
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-                            {/* MEETUP INFO BOX */}
-                            {deliveryMode === 'meetup' && (
-                                <div className="bg-green-50 p-4 rounded mb-4 border border-green-200">
-                                    <h4 className="font-bold text-green-800">🤝 Meetup Selected</h4>
-                                    <p className="text-sm text-green-700 mb-2">
-                                        You will meet <strong>{delivery.seller_name}</strong> directly.
-                                    </p>
-                                    <div className="font-mono text-lg bg-white p-2 rounded border text-center select-all">
-                                        {delivery.seller_phone ? (
-                                            <>📞 {delivery.seller_phone}</>
-                                        ) : (
-                                            <span classname="text-red-500 text-sm">
-                                                User hasn't added a phone number.
-                                                <br />
-                                                <button
-                                                    onClick={() => navigate('/chat')}
-                                                    className="text-blue-600 underline mt-1 font-bold"
-                                                >
-                                                    Use In-App Chat
-                                                </button>
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-2">
-                                        *Call to agree on a time and place.
-                                    </p>
-                                </div>
-                            )}
+                            <form onSubmit={handlePay} className="space-y-3">
+                                <input
+                                    type="text"
+                                    placeholder="M-Pesa Number (07...)"
+                                    value={paymentPhone}
+                                    onChange={e => setPaymentPhone(e.target.value)}
+                                    className="w-full border p-3 rounded-lg text-sm outline-none focus:border-green-500"
+                                    required
+                                />
+                                <button disabled={processing} className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 shadow-lg shadow-green-200 transition">
+                                    {processing ? "Processing..." : `Pay KSh ${Number(calculatedCost).toFixed(0)}`}
+                                </button>
+                            </form>
 
-                            {/* COST SUMMARY */}
-                            <div className="border-t pt-4">
-                                <div className="flex justify-between text-xl font-bold mb-4">
-                                    <span>Total to Pay:</span>
-                                    <span>KSh {calculatedCost}</span>
-                                </div>
-
-                                {/* PAYMENT / CONFIRM FORM */}
-                                <form onSubmit={handleProcessOrder}>
-                                    {calculatedCost > 0 && (
-                                        <div className="mb-3">
-                                            <label className="block text-sm mb-1">M-Pesa Number</label>
-                                            <input
-                                                type="text"
-                                                placeholder="07XX XXX XXX"
-                                                value={paymentPhone}
-                                                onChange={(e) => setPaymentPhone(e.target.value)}
-                                                className="w-full border p-2 rounded"
-                                                required={calculatedCost > 0}
-                                            />
-                                        </div>
-                                    )}
-                                    <button
-                                        disabled={processing}
-                                        className={`w-full py-3 rounded text-white font-bold ${calculatedCost > 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-                                    >
-                                        {processing ? 'Processing...' : (calculatedCost > 0 ? `Pay KSh ${calculatedCost}` : 'Confirm Meetup')}
-                                    </button>
-                                </form>
-                            </div>
+                            <button onClick={handleCancel} className="mt-4 w-full text-center text-red-500 text-xs font-bold hover:underline">
+                                Cancel Order
+                            </button>
                         </div>
                     )}
                 </div>
 
-                {/* RIGHT: MAP */}
-                <div className="bg-white p-2 rounded shadow h-96">
+                {/* --- RIGHT PANEL: MAP --- */}
+                <div className="lg:col-span-2 h-[500px] lg:h-auto bg-gray-200 rounded-xl overflow-hidden shadow-inner border border-gray-300 relative">
                     <MapContainer center={NYERI_CENTER} zoom={12} style={{ height: '100%', width: '100%' }}>
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-                        {/* 1. Show Default Center if no calculation yet */}
-                        {!pickupCoords && (
-                            <Marker position={NYERI_CENTER}>
-                                <Popup>Nyeri Central</Popup>
-                            </Marker>
-                        )}
+                        {geoCoords.start && <Marker position={geoCoords.start} icon={IconFactory('📦')}><Popup>Pickup Point</Popup></Marker>}
+                        {geoCoords.end && <Marker position={geoCoords.end} icon={IconFactory('🏁')}><Popup>Dropoff Point</Popup></Marker>}
+                        {geoCoords.rider && <Marker position={geoCoords.rider} icon={IconFactory('🏍️')}><Popup>Rider</Popup></Marker>}
 
-                        {/* 2. Show Seller's Location (If found) */}
-                        {pickupCoords && (
-                            <Marker position={pickupCoords}>
-                                <Popup>📦 Seller: {delivery.pickup_location}</Popup>
-                            </Marker>
-                        )}
-
-                        {/* 3. Show Buyer's Location (If found) */}
-                        {dropoffCoords && (
-                            <Marker position={dropoffCoords}>
-                                <Popup>📍 You: {newLocation}</Popup>
-                            </Marker>
-                        )}
-
-                        {/* 4. Draw a Line between them */}
-                        {pickupCoords && dropoffCoords && (
-                            <Polyline positions={[pickupCoords, dropoffCoords]} color="blue" />
+                        {routePath && (
+                            <Polyline
+                                positions={routePath}
+                                color={isSwap ? "#9333ea" : "#2563eb"}
+                                weight={6}
+                                opacity={0.8}
+                            />
                         )}
                     </MapContainer>
+
+                    {/* STATUS OVERLAY */}
+                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-3 rounded-lg shadow-lg z-[1000] border border-gray-200">
+                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">Status</p>
+                        <div className={`text-sm font-bold px-2 py-1 rounded ${delivery.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                                delivery.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                            {delivery.status.toUpperCase()}
+                        </div>
+                    </div>
                 </div>
+
             </div>
         </div>
     );

@@ -174,3 +174,10 @@ EMAIL_HOST_USER = 'kennaskimaita10@gmail.com'
 EMAIL_HOST_PASSWORD = 'roac ygzj ikpt akth'
 DEFAULT_FROM_EMAIL = 'Textbook Exchange <noreply@textbookexchange.com>'
 
+# Mpesa configuration
+MPESA_ENVIRONMENT = 'sandbox' 
+MPESA_CONSUMER_KEY = 'i4nWtGuZKWLp9LgMe1CtJ4jW4g7cpkAfGjTwJNrhUfYqjcu5'
+MPESA_CONSUMER_SECRET = 'nSGdx3CXmEMtWeAadTbA6RBfdt2GqqsADiutwbGLjGMbEpHmUAZskU9fI24vmA1A'
+MPESA_SHORTCODE = '174379' 
+MPESA_PASSKEY = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919' 
+MPESA_CALLBACK_URL = 'https://unjustly-fragmented-quinn.ngrok-free.dev/api/mpesa/callback/'

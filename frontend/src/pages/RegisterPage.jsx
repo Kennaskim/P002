@@ -4,6 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
 import Button from '../components/Button';
 
+const NYERI_LOCATIONS = [
+    "Nyeri Town", "Ruring'u", "Skuta", "Kamakwa", "King'ong'o", "Nyaribo",
+    "Karatina", "Othaya", "Mukurwe-ini", "Chaka", "Naromoru", "Kiganjo",
+    "Mweiga", "Gatitu", "Marua", "Ihururu", "Giakanja", "Tetuh",
+    "Dedan Kimathi University", "Nyeri PGH", "Mathari", "Mathira",
+    "Endarasha", "Gia-akanja", "Wamagana", "Gakawa"
+].sort();
+
 const RegisterPage = () => {
     const [formData, setFormData] = useState({
         email: '',
@@ -25,6 +33,8 @@ const RegisterPage = () => {
         setError(null);
         setLoading(true);
 
+        if (formData.location && !NYERI_LOCATIONS.includes(formData.location)) {
+        }
         const result = await register(formData);
 
         if (result.success) {
@@ -106,12 +116,24 @@ const RegisterPage = () => {
                         </select>
                     </div>
 
-                    <Input
-                        label="Location (Optional)"
-                        value={formData.location}
-                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                        placeholder="e.g. Nyeri Town"
-                    />
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Location (Nyeri County)</label>
+                        <input
+                            list="nyeri-locations"
+                            type="text"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 outline-none"
+                            placeholder="Type to search (e.g. Skuta, Chaka)..."
+                            value={formData.location}
+                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                            required
+                        />
+                        <datalist id="nyeri-locations">
+                            {NYERI_LOCATIONS.map((loc) => (
+                                <option key={loc} value={loc} />
+                            ))}
+                        </datalist>
+                        <p className="text-xs text-gray-500 mt-1">Select the nearest town/center.</p>
+                    </div>
 
                     <Input
                         label="Password"

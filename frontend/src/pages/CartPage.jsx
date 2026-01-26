@@ -1,15 +1,48 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import Button from '../components/Button';
+import api from '../utils/api';
 
 const CartPage = () => {
-    const { cart, removeFromCart, loading } = useCart();
+    const { cart, loading, setCart } = useCart(); // Destructure setCart to manually clear local state if needed
+    const [processing, setProcessing] = useState(false);
+    const navigate = useNavigate();
 
     if (loading && !cart) return <div className="p-8 text-center">Loading cart...</div>;
 
     const items = cart?.items || [];
     const total = items.reduce((sum, item) => sum + Number(item.listing.price), 0);
+
+
+    const handleCheckout = async () => {
+        if (items.length === 0) return;
+
+        if (!window.confirm(`Confirm purchase of ${items.length} books for KSh ${total.toFixed(2)}?`)) return;
+
+        setProcessing(true);
+
+        try {
+            // 1. Send ONE "Batch Request"
+            const listingIds = items.map(item => item.listing.id);
+            await api.post('orders/', { listing_ids: listingIds });
+
+            // 2. Backend now handles the deletion!
+            // We just update the local UI to look empty immediately
+            if (setCart) setCart({ items: [] });
+
+            // 3. Success & Redirect
+            alert("✅ Orders Placed! \n\nItems have been grouped by seller.\nNext Step: Go to Dashboard -> 'Track Order' to pay.");
+            navigate('/dashboard');
+
+        } catch (err) {
+            console.error(err);
+            alert("Checkout Failed. One or more books might already be sold. Please refresh.");
+            window.location.reload(); // Reload to sync with real database state
+        } finally {
+            setProcessing(false);
+        }
+    };
 
     if (items.length === 0) {
         return (
@@ -55,12 +88,8 @@ const CartPage = () => {
 
                                 <div className="flex justify-between items-center mt-4">
                                     <span className="font-bold text-green-600">KSh {item.listing.price}</span>
-                                    <button
-                                        onClick={() => removeFromCart(item.id)}
-                                        className="text-red-500 text-sm hover:underline hover:text-red-700"
-                                    >
-                                        Remove
-                                    </button>
+                                    {/* Only remove capability, not processing logic needed here */}
+                                    <span className="text-xs text-gray-400">In Cart</span>
                                 </div>
                             </div>
                         </div>
@@ -76,10 +105,10 @@ const CartPage = () => {
                             <span className="text-gray-600">Subtotal</span>
                             <span className="font-medium">KSh {total.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between mb-4">
+                        {/*<div className="flex justify-between mb-4">
                             <span className="text-gray-600">Delivery</span>
                             <span className="text-green-600 font-medium">Free</span>
-                        </div>
+                        </div>*/}
 
                         <div className="border-t pt-4 mb-6">
                             <div className="flex justify-between items-center">
@@ -88,8 +117,12 @@ const CartPage = () => {
                             </div>
                         </div>
 
-                        <Button onClick={() => alert("Book purchased successfully")}>
-                            Checkout
+                        <Button
+                            onClick={handleCheckout}
+                            disabled={processing}
+                            className={`w-full ${processing ? 'opacity-50 cursor-not-allowed' : 'bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition'}`}
+                        >
+                            {processing ? 'Processing...' : 'Checkout'}
                         </Button>
                     </div>
                 </div>

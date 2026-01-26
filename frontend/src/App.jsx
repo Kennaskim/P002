@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ProfilePage from './pages/ProfilePage';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -45,6 +46,7 @@ function App() {
 
               {/* --- PRIVATE ROUTES (Must be logged in) --- */}
               <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+              <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
               <Route path="/listings/create" element={<PrivateRoute><CreateListingPage /></PrivateRoute>} />
               <Route path="/chat" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
               <Route path="/chat/:conversationId" element={<PrivateRoute><ChatPage /></PrivateRoute>} />

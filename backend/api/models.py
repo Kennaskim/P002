@@ -97,7 +97,7 @@ class SchoolProfile(models.Model):
 class BookList(models.Model):
     school = models.ForeignKey(SchoolProfile, on_delete=models.CASCADE, related_name='book_lists')
     grade = models.CharField(max_length=50)
-    academic_year = models.CharField(max_length=9, help_text="e.g., 2024-2025")
+    academic_year = models.CharField(max_length=20, help_text="e.g., 2024-2025")
     # A ManyToManyField means one list has many books, and one book can be on many lists
     textbooks = models.ManyToManyField(Textbook, related_name='appears_on_lists')
 
@@ -209,12 +209,13 @@ class Delivery(models.Model):
         ('paid', 'Processing'),
         ('shipped', 'In Transit'),
         ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
     ]
     
     # Delivery can be for a Swap OR an Order
+    orders = models.ManyToManyField(Order, related_name='delivery')    
     swap = models.OneToOneField(SwapRequest, null=True, blank=True, on_delete=models.CASCADE, related_name='delivery')
-    order = models.OneToOneField(Order, null=True, blank=True, on_delete=models.CASCADE, related_name='delivery')
-    
+
     # Logistics Info
     pickup_location = models.CharField(max_length=255) # Seller's location
     dropoff_location = models.CharField(max_length=255) # Buyer's location
@@ -223,9 +224,14 @@ class Delivery(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     
     # Transport Cost (Standard rate for Nyeri)
-    transport_cost = models.DecimalField(max_digits=10, decimal_places=2, default=250.00) 
-    
+    transport_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Realtime tracking
+    current_lat = models.FloatField(null=True, blank=True)
+    current_lng = models.FloatField(null=True, blank=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
 
     def __str__(self):
         return f"Delivery {self.tracking_code or 'Pending'}"

@@ -1,15 +1,69 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getAvailableDeliveries, acceptDeliveryJob, completeDeliveryJob } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 
 const RiderPage = () => {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const watchId = useRef(null); // Keeps track of the GPS watcher ID
     const navigate = useNavigate();
 
     useEffect(() => {
         loadJobs();
+        // Cleanup GPS on unmount (e.g. logging out)
+        return () => stopTracking();
     }, []);
+
+    // --- NEW: AUTO-TRACKING LOGIC ---
+    // Monitor jobs: If one is 'shipped', start tracking. If not, stop.
+    useEffect(() => {
+        const activeJob = jobs.find(j => j.status === 'shipped');
+
+        if (activeJob) {
+            console.log(`📍 Active Job Found (${activeJob.id}). Starting GPS...`);
+            startTracking(activeJob.id);
+        } else {
+            stopTracking();
+        }
+    }, [jobs]);
+
+    const startTracking = (jobId) => {
+        if (!navigator.geolocation) {
+            console.error("GPS not supported by this browser.");
+            return;
+        }
+
+        // Prevent starting multiple watchers
+        if (watchId.current) return;
+
+        watchId.current = navigator.geolocation.watchPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                console.log(`📍 Pushing Update: ${latitude}, ${longitude}`);
+
+                // Send coordinates to backend silently
+                api.post(`deliveries/${jobId}/update_location/`, {
+                    lat: latitude,
+                    lng: longitude
+                }).catch(err => console.error("Failed to push location:", err));
+            },
+            (error) => console.error("GPS Error:", error),
+            {
+                enableHighAccuracy: true, // Force GPS (important for mobile)
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    };
+
+    const stopTracking = () => {
+        if (watchId.current) {
+            navigator.geolocation.clearWatch(watchId.current);
+            watchId.current = null;
+            console.log("🛑 GPS Tracking Stopped.");
+        }
+    };
+    // --------------------------------
 
     const loadJobs = () => {
         getAvailableDeliveries()
@@ -23,20 +77,15 @@ const RiderPage = () => {
     const handleAccept = async (id) => {
         if (window.confirm("Accept this delivery job?")) {
             try {
-                console.log(`Attempting to accept job ID: ${id}`); // Debug Log
-
                 await acceptDeliveryJob(id);
-
-                alert("Job Accepted! You are now the rider.");
-                loadJobs(); // Refresh list
+                alert("Job Accepted! GPS Tracking Started.");
+                loadJobs(); // Refreshing triggers the useEffect above to start GPS
             } catch (error) {
-                console.error("Accept Job Error:", error); // See full error in Console (F12)
-
-                // Show the specific error message to the user
+                console.error("Accept Job Error:", error);
                 if (error.response) {
-                    alert(`Error: ${error.response.status} - ${error.response.statusText}\n${JSON.stringify(error.response.data)}`);
+                    alert(`Error: ${JSON.stringify(error.response.data)}`);
                 } else {
-                    alert(`Network Error: ${error.message}`);
+                    alert("Network Error");
                 }
             }
         }
@@ -44,6 +93,7 @@ const RiderPage = () => {
 
     const handleComplete = async (id) => {
         if (window.confirm("Confirm package delivered?")) {
+            stopTracking(); // Stop GPS immediately
             await completeDeliveryJob(id);
             alert("Great work! Delivery marked as complete.");
             loadJobs();
@@ -72,13 +122,14 @@ const RiderPage = () => {
                                             }`}>
                                             {job.status === 'paid' ? 'Ready for Pickup' : 'In Transit'}
                                         </span>
+                                        {job.status === 'shipped' && <span className="text-xs text-red-500 animate-pulse font-bold">● LIVE GPS</span>}
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-4">
                                         <div>
                                             <p className="text-gray-500 font-bold">📍 From (Seller):</p>
                                             <p>{job.seller_location || job.pickup_location}</p>
-                                            {job.status === 'shipped' && <p className="text-blue-600">📞 {job.seller_phone}</p>}
+                                            {job.status === 'shipped' && <p className="text-blue-600 font-bold">📞 {job.seller_phone}</p>}
                                         </div>
                                         <div>
                                             <p className="text-gray-500 font-bold">🏁 To (Buyer):</p>
@@ -95,7 +146,7 @@ const RiderPage = () => {
                                     {job.status === 'paid' && (
                                         <button
                                             onClick={() => handleAccept(job.id)}
-                                            className="bg-green-600 text-white px-6 py-2 rounded shadow hover:bg-green-700"
+                                            className="bg-green-600 text-white px-6 py-2 rounded shadow hover:bg-green-700 font-bold"
                                         >
                                             Accept Job
                                         </button>
@@ -105,13 +156,13 @@ const RiderPage = () => {
                                         <>
                                             <button
                                                 onClick={() => navigate(`/tracking/${job.id}`)}
-                                                className="bg-gray-200 text-gray-800 px-6 py-2 rounded hover:bg-gray-300"
+                                                className="bg-gray-200 text-gray-800 px-6 py-2 rounded hover:bg-gray-300 font-medium"
                                             >
                                                 View Map
                                             </button>
                                             <button
                                                 onClick={() => handleComplete(job.id)}
-                                                className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700"
+                                                className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 font-bold"
                                             >
                                                 Mark Delivered
                                             </button>

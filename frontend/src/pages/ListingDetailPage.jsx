@@ -115,6 +115,8 @@ const ListingDetailPage = () => {
     if (!listing) return <div className="p-8 text-center text-red-500">Book not found.</div>;
 
     const { textbook, listed_by } = listing;
+    const isSchool = user && user.user_type === 'school';
+    const canSell = !user || user.user_type !== 'school';
 
     return (
         <div className="container mx-auto px-4 py-8">
@@ -219,21 +221,21 @@ const ListingDetailPage = () => {
 
                         <div className="space-y-3">
                             {/* Swap Button (If Exchange) */}
-                            {listing.listing_type === 'exchange' && user?.id !== listed_by.id && (
+                            {listing.listing_type === 'exchange' && user?.id !== listed_by.id && !isSchool && (
                                 <Button onClick={handleOpenSwapModal} className="bg-purple-600 hover:bg-purple-700 text-white w-full mb-2 rounded-2xl">
                                     ⇄ Propose Swap
                                 </Button>
                             )}
 
                             {/* Message Seller */}
-                            {user?.id !== listed_by.id && (
+                            {user?.id !== listed_by.id && !isSchool && (
                                 <Button onClick={handleMessageSeller} variant="secondary" className="w-full bg-green-600 hover:bg-green-700 rounded-2xl">
                                     Message Seller
                                 </Button>
                             )}
 
                             {/* Add to Cart (If Sell) */}
-                            {user?.id !== listed_by.id && listing.listing_type === 'sell' && (
+                            {user?.id !== listed_by.id && listing.listing_type === 'sell' && !isSchool && (
                                 <Button variant="secondary" onClick={handleAddToCart} disabled={isAddingToCart} className="w-full bg-gray-400 hover:bg-gray-500 rounded-2xl">
                                     {isAddingToCart ? 'Adding...' : 'Add to Cart'}
                                 </Button>

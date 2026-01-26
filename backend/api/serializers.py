@@ -45,7 +45,6 @@ class TextbookSerializer(serializers.ModelSerializer):
 class ListingSerializer(serializers.ModelSerializer):
     listed_by = UserSerializer(read_only=True)
     textbook = TextbookSerializer(read_only=True)
-    
     textbook_id = serializers.PrimaryKeyRelatedField(
         queryset=Textbook.objects.all(), 
         source='textbook', 
@@ -89,7 +88,6 @@ class ConversationSerializer(serializers.ModelSerializer):
     other_user = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     listing = ListingSerializer(read_only=True)
-
     class Meta:
         model = Conversation
         fields = ['id', 'other_user', 'last_message', 'updated_at', 'listing']
@@ -109,7 +107,6 @@ class ConversationSerializer(serializers.ModelSerializer):
 
 class CartItemSerializer(serializers.ModelSerializer):
     listing = ListingSerializer(read_only=True) # Show full listing details
-    
     class Meta:
         model = CartItem
         fields = ['id', 'listing', 'added_at']
@@ -117,7 +114,6 @@ class CartItemSerializer(serializers.ModelSerializer):
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
     total = serializers.SerializerMethodField()
-
     class Meta:
         model = Cart
         fields = ['id', 'items', 'total']
@@ -128,17 +124,59 @@ class CartSerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     reviewer = UserSerializer(read_only=True) # Show who wrote the review
-
     class Meta:
         model = Review
         fields = ['id', 'listing', 'reviewer', 'seller', 'rating', 'comment', 'created_at']
         read_only_fields = ('id', 'reviewer', 'seller', 'created_at')
+
+class OrderSerializer(serializers.ModelSerializer):
+    #delivery = DeliverySerializer(read_only=True)
+    listing = ListingSerializer(read_only=True)
+    buyer = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = Order
+        fields = ['id', 'buyer', 'listing', 'amount_paid', 'created_at']
+
+class SwapRequestSerializer(serializers.ModelSerializer):
+    sender = UserSerializer(read_only=True)
+    receiver = UserSerializer(read_only=True)
+    requested_listing = ListingSerializer(read_only=True)
+    offered_listing = ListingSerializer(read_only=True)
+    delivery_id = serializers.SerializerMethodField()
+
+    # For creating the request, we only send IDs
+    requested_listing_id = serializers.PrimaryKeyRelatedField(
+        queryset=Listing.objects.all(), source='requested_listing', write_only=True
+    )
+    offered_listing_id = serializers.PrimaryKeyRelatedField(
+        queryset=Listing.objects.all(), source='offered_listing', write_only=True
+    )
+
+    class Meta:
+        model = SwapRequest
+        fields = [
+            'id', 'sender', 'receiver', 'status', 'created_at',
+            'requested_listing', 'offered_listing',
+            'requested_listing_id', 'offered_listing_id',
+            'delivery_id'
+        ]
+        read_only_fields = ['id', 'sender', 'receiver', 'status', 'created_at']
+
+    def get_delivery_id(self, obj):
+        # Check if the swap has a related delivery
+        if hasattr(obj, 'delivery'):
+            return obj.delivery.id
+        return None
 
 class DeliverySerializer(serializers.ModelSerializer):
     # We are adding a custom field that doesn't exist in the Delivery model
     seller_name = serializers.SerializerMethodField()
     seller_phone = serializers.SerializerMethodField()
     seller_location = serializers.SerializerMethodField()
+
+    orders = OrderSerializer(many=True, read_only=True)
+    swap = SwapRequestSerializer(read_only=True)
 
     class Meta:
         model = Delivery
@@ -174,36 +212,6 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['is_successful', 'transaction_code']
 
-class OrderSerializer(serializers.ModelSerializer):
-    delivery = DeliverySerializer(read_only=True)
-    listing = ListingSerializer(read_only=True)
-    
-    class Meta:
-        model = Order
-        fields = ['id', 'buyer', 'listing', 'amount_paid', 'created_at', 'delivery']
 
-class SwapRequestSerializer(serializers.ModelSerializer):
-    sender = UserSerializer(read_only=True)
-    receiver = UserSerializer(read_only=True)
-    requested_listing = ListingSerializer(read_only=True)
-    offered_listing = ListingSerializer(read_only=True)
-    delivery = DeliverySerializer(read_only=True)
 
-    # For creating the request, we only send IDs
-    requested_listing_id = serializers.PrimaryKeyRelatedField(
-        queryset=Listing.objects.all(), source='requested_listing', write_only=True
-    )
-    offered_listing_id = serializers.PrimaryKeyRelatedField(
-        queryset=Listing.objects.all(), source='offered_listing', write_only=True
-    )
-
-    class Meta:
-        model = SwapRequest
-        fields = [
-            'id', 'sender', 'receiver', 'status', 'created_at',
-            'requested_listing', 'offered_listing',
-            'requested_listing_id', 'offered_listing_id',
-            'delivery'
-        ]
-        read_only_fields = ['id', 'sender', 'receiver', 'status', 'created_at']
 

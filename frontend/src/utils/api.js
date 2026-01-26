@@ -89,10 +89,12 @@ export const calculateDeliveryFee = (pickup, dropoff) => {
     });
 };
 export const initiateMpesa = (data) => api.post('payments/initiate_mpesa/', data);
+export const cancelDelivery = (id) => api.post(`deliveries/${id}/cancel_order/`);
 
 // --- Rider Functions ---
 export const getAvailableDeliveries = () => api.get('deliveries/?view=rider');
 export const acceptDeliveryJob = (id) => api.post(`deliveries/${id}/accept_job/`);
+export const getMyDeliveries = () => api.get('deliveries/');
 export const completeDeliveryJob = (id) => api.post(`deliveries/${id}/complete_job/`);
 
 export default api;

@@ -39,7 +39,7 @@ const ChatPage = () => {
                 setLoading(false);
             })
             .catch(() => setLoading(false));
-    }, [activeChat]);
+    }, []);
 
     // 2. Handle URL ID changes
     useEffect(() => {
@@ -195,8 +195,8 @@ const ChatPage = () => {
                                             <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                                                 <div
                                                     className={`max-w-[75%] px-4 py-2 rounded-lg shadow-sm text-sm relative group ${isMe
-                                                            ? 'bg-green-600 text-white rounded-tr-none'
-                                                            : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
+                                                        ? 'bg-green-600 text-white rounded-tr-none'
+                                                        : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                                                         }`}
                                                 >
                                                     <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>

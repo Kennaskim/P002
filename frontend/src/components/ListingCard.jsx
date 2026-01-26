@@ -2,12 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 const ListingCard = ({ listing }) => {
-    // Safe access to nested data (in case textbook is null for some reason)
+    // Safe access to nested data
     const book = listing.textbook || {};
     const seller = listing.listed_by || {};
 
+    // Check if the seller is a bookshop
+    const isShop = seller.user_type === 'bookshop';
+
     return (
-        <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-gray-100">
+        <div className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border ${isShop ? 'border-blue-200' : 'border-gray-100'}`}>
             <Link to={`/listings/${listing.id}`}>
                 {/* 1. Image Area */}
                 <div className="aspect-[3/4] bg-gray-200 relative">
@@ -23,8 +26,15 @@ const ListingCard = ({ listing }) => {
                         </div>
                     )}
 
-                    {/* Badge for Type (Sale/Exchange) */}
-                    <span className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-bold text-white ${listing.listing_type === 'sell' ? 'bg-green-500' : 'bg-purple-500'
+                    {/* --- NEW: STORE BADGE (Left side) --- */}
+                    {isShop && (
+                        <span className="absolute top-2 left-2 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded shadow z-10 flex items-center gap-1">
+                            🏪 Store
+                        </span>
+                    )}
+
+                    {/* Badge for Type (Right side) */}
+                    <span className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-bold text-white shadow ${listing.listing_type === 'sell' ? 'bg-green-500' : 'bg-purple-500'
                         }`}>
                         {listing.listing_type === 'sell' ? 'For Sale' : 'Exchange'}
                     </span>
@@ -47,13 +57,24 @@ const ListingCard = ({ listing }) => {
                                 </span>
                             )}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                             {listing.condition}
                         </div>
                     </div>
 
-                    <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
-                        <span>{seller.username}, 📍{seller.location}</span>
+                    {/* Footer: Seller Info */}
+                    <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
+                        <div className="flex items-center gap-1 truncate max-w-[70%]">
+                            {/* Icon based on user type */}
+                            <span>{isShop ? '🏪' : '👤'}</span>
+
+                            {/* Highlight Shop Name */}
+                            <span className={isShop ? 'font-bold text-blue-700' : ''}>
+                                {seller.username}
+                            </span>
+
+                            {seller.location && <span className="text-gray-400">📍{seller.location}</span>}
+                        </div>
 
                         <span>{listing.created_at ? new Date(listing.created_at).toLocaleDateString() : ''}</span>
                     </div>

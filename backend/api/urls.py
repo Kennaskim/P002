@@ -4,7 +4,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,  
     TokenRefreshView,            
 )
-from .views import RegisterView, CurrentUserView, TextbookViewSet, ListingViewSet, BookshopViewSet, SchoolViewSet, SchoolBookListsView, ConversationListView, MessageListView, FindOrCreateConversationView, CartView, ReviewViewSet, UserReviewsView, MyListingsView, MyBookListsView, MyProfileView, SwapRequestViewSet, DeliveryViewSet, OrderViewSet, PaymentViewSet, calculate_delivery_fee
+from .views import RegisterView, CurrentUserView, TextbookViewSet, ListingViewSet, BookshopViewSet, SchoolViewSet, SchoolBookListsView, ConversationListView, MessageListView, FindOrCreateConversationView, CartView, ReviewViewSet, UserReviewsView, MyListingsView, MyBookListsView, MyProfileView, SwapRequestViewSet, DeliveryViewSet, OrderViewSet, PaymentViewSet, calculate_delivery_fee, BookListViewSet
 #router
 router = DefaultRouter()
 #register viewsets
@@ -18,6 +18,7 @@ router.register(r'swaps', SwapRequestViewSet, basename='swap')
 router.register(r'orders', OrderViewSet, basename='order')
 router.register(r'payments', PaymentViewSet, basename='payment')
 router.register(r'deliveries', DeliveryViewSet, basename='delivery')
+router.register(r'booklists', BookListViewSet, basename='booklist')
 urlpatterns = [
     path('', include(router.urls)),
     path('schools/<int:school_id>/booklists/', SchoolBookListsView.as_view(), name='school_book_lists'),

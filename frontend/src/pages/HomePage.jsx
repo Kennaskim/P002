@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 import ListingCard from '../components/ListingCard';
 
 const HomePage = () => {
+    const { user } = useAuth();
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -38,6 +40,8 @@ const HomePage = () => {
     if (loading) return <div className="text-center py-10">Loading books...</div>;
     if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
 
+    const canSell = !user || user.user_type !== 'school';
+
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="flex justify-between items-center mb-6">
@@ -48,12 +52,14 @@ const HomePage = () => {
                         : "Latest Textbooks"
                     }
                 </h1>
-                <Link
-                    to="/listings/create"
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-                >
-                    + Sell a Book
-                </Link>
+                {canSell && (
+                    <Link
+                        to="/listings/create"
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+                    >
+                        + Sell a Book
+                    </Link>
+                )}
             </div>
 
             {listings.length === 0 ? (

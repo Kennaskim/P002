@@ -4,8 +4,8 @@ import api from '../utils/api';
 import Input from '../components/Input';
 import Button from '../components/Button';
 
-const GENERIC_SUBJECTS = ['Dictionary', 'Kamusi', 'Bible', 'Atlas', 'Encyclopedia', 'Storybook', 'Reference'];
-const ACADEMIC_SUBJECTS = ['Mathematics', 'English', 'Kiswahili', 'Science & Technology', 'Social Studies', 'Agriculture', 'Home Science', 'Creative Arts', 'Computer Science', 'Religious Education', 'Music'];
+const GENERIC_SUBJECTS = ['Dictionary', 'Kamusi', 'Bible', 'Atlas', 'Encyclopedia', 'Reference'];
+const ACADEMIC_SUBJECTS = ['Mathematics', 'English', 'Kiswahili', 'Science & Technology', 'Social Studies', 'Agriculture', 'Home Science', 'Creative Arts', 'Computer Science', 'Religious Education', 'Music', 'Storybook'];
 const GRADES = ['PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9'];
 
 const CreateListingPage = () => {
