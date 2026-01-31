@@ -174,6 +174,13 @@ class DeliverySerializer(serializers.ModelSerializer):
     seller_name = serializers.SerializerMethodField()
     seller_phone = serializers.SerializerMethodField()
     seller_location = serializers.SerializerMethodField()
+    conversation_id = serializers.SerializerMethodField()
+    seller_name = serializers.SerializerMethodField()
+    seller_phone = serializers.SerializerMethodField()
+    seller_location = serializers.SerializerMethodField()
+    pickup_contact = serializers.SerializerMethodField()
+    dropoff_contact = serializers.SerializerMethodField()
+    rider_phone = serializers.SerializerMethodField()
 
     orders = OrderSerializer(many=True, read_only=True)
     swap = SwapRequestSerializer(read_only=True)
@@ -198,6 +205,33 @@ class DeliverySerializer(serializers.ModelSerializer):
             return None
         return None
 
+    def get_pickup_contact(self, obj):
+        try:
+            if obj.swap: 
+                return obj.swap.sender.phone_number
+            if obj.orders.exists(): 
+                return obj.orders.first().listing.listed_by.phone_number
+        except:
+            return None
+        return None
+
+    def get_rider_phone(self, obj):
+        try:
+            return obj.rider.phone_number
+        except:
+            return None
+        return None
+
+    def get_dropoff_contact(self, obj):
+        try:
+            if obj.swap: 
+                return obj.swap.receiver.phone_number
+            if obj.orders.exists(): 
+                return obj.orders.first().buyer.phone_number
+        except:
+            return None
+        return None    
+
     def get_seller_location(self, obj):
         try:
             if obj.order: return obj.order.listing.listed_by.location
@@ -205,6 +239,11 @@ class DeliverySerializer(serializers.ModelSerializer):
         except:
             return obj.pickup_location
         return obj.pickup_location
+
+    def get_conversation_id(self, obj):
+        # Return the ID of the conversation linked to this delivery
+        conv = obj.conversations.first()
+        return conv.id if conv else None
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:

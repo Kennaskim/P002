@@ -19,6 +19,7 @@ import ChatPage from './pages/ChatPage';
 import CartPage from './pages/CartPage';
 import TrackingPage from './pages/TrackingPage';
 import RiderPage from './pages/RiderPage';
+import EarningsPage from './pages/EarningsPage';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -52,6 +53,7 @@ function App() {
               <Route path="/chat/:conversationId" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
               <Route path="/cart" element={<PrivateRoute><CartPage /></PrivateRoute>} />
               <Route path="/rider" element={<PrivateRoute><RiderPage /></PrivateRoute>} />
+              <Route path="rider/earnings" element={<PrivateRoute><EarningsPage /></PrivateRoute>} />
               <Route path="/tracking/:id" element={<TrackingPage />} />
             </Route>
           </Routes>

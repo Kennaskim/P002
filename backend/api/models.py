@@ -125,6 +125,7 @@ class Review(models.Model):
 class Conversation(models.Model):
     participants = models.ManyToManyField(User, related_name='conversations')
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='conversations', null=True, blank=True)
+    delivery = models.ForeignKey('Delivery', on_delete=models.CASCADE, related_name='conversations', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

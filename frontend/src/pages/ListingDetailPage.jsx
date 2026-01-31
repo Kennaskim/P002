@@ -223,7 +223,7 @@ const ListingDetailPage = () => {
                             {/* Swap Button (If Exchange) */}
                             {listing.listing_type === 'exchange' && user?.id !== listed_by.id && !isSchool && (
                                 <Button onClick={handleOpenSwapModal} className="bg-purple-600 hover:bg-purple-700 text-white w-full mb-2 rounded-2xl">
-                                    ⇄ Propose Swap
+                                    ⇄ Request Swap
                                 </Button>
                             )}
 

@@ -96,5 +96,5 @@ export const getAvailableDeliveries = () => api.get('deliveries/?view=rider');
 export const acceptDeliveryJob = (id) => api.post(`deliveries/${id}/accept_job/`);
 export const getMyDeliveries = () => api.get('deliveries/');
 export const completeDeliveryJob = (id) => api.post(`deliveries/${id}/complete_job/`);
-
+export const updateDeliveryLocation = (id, coords) => api.post(`deliveries/${id}/update_location/`, coords);
 export default api;

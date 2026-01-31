@@ -4,9 +4,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework import permissions
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum, Q
+from django.utils import timezone
 from django.db import transaction
 from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review, SwapRequest, Order, Delivery, Payment
 from .serializers import UserSerializer, RegisterSerializer, TextbookSerializer, ListingSerializer, BookshopProfileSerializer, SchoolProfileSerializer, BookListSerializer, ConversationSerializer, MessageSerializer, CartItemSerializer, CartSerializer, ReviewSerializer, SwapRequestSerializer, OrderSerializer, DeliverySerializer, PaymentSerializer
@@ -609,44 +609,85 @@ class DeliveryViewSet(viewsets.ModelViewSet):
     queryset = Delivery.objects.all()
     serializer_class = DeliverySerializer
     permission_classes = [permissions.IsAuthenticated]
+    
 
     def get_queryset(self):
         user = self.request.user
 
         if user.user_type == 'rider':
+            rider_phone = user.phone_number or ""
             return Delivery.objects.filter(
                 Q(status='paid') | 
-                Q(rider_phone=user.phone_number) 
-            ).order_by('-created_at').distinct()
+                Q(rider_phone=user.phone_number)
+            ).order_by('-created_at')
 
         return Delivery.objects.filter(
             Q(orders__buyer=user) | 
             Q(orders__listing__listed_by=user) |
             Q(swap__sender=user) | 
             Q(swap__receiver=user)
-        ).order_by('-created_at').distinct()
+        ).order_by('-created_at').distinct().order_by('-created_at')
     # Rider Accepts a Job
     @action(detail=True, methods=['post'])
     def accept_job(self, request, pk=None):
         delivery = self.get_object()
+        user = request.user
+        active_job = Delivery.objects.filter(rider_phone=user.phone_number, status='shipped').exists()
+        
+        if active_job:
+            return Response({'error': '⛔ You have an unfinished delivery! Complete it first.'}, status=400)
+        
+        # 2. Validation: Prevent taking a taken job
+        if delivery.status != 'paid':
+            return Response({'error': 'Job is no longer available.'}, status=400)
         # Change status to 'shipped' (In Transit)
         delivery.status = 'shipped'
-        delivery.rider_phone = request.user.phone_number or "0700000000" # Save Rider's number
+        delivery.rider = user
+        delivery.rider_phone = user.phone_number
         delivery.save()
         
-        return Response({'status': 'Job Accepted', 'tracking_code': delivery.tracking_code})
+        customer = None
+        if delivery.orders.exists():
+            customer = delivery.orders.first().buyer
+        elif delivery.swap:
+            # For swaps, the proposer (sender) is usually the one tracking/paying
+            customer = delivery.swap.sender
+        
+        if customer:
+            # Check if chat already exists for this delivery
+            conversation, created = Conversation.objects.get_or_create(
+                delivery=delivery,
+                defaults={'listing': None} 
+            )
+            # Ensure both are participants
+            conversation.participants.add(user, customer)
+        return Response({'status': 'Job Accepted', 'tracking_code': delivery.tracking_code, 'delivery': DeliverySerializer(delivery).data})
+
+    
+    #update riders location
+    @action(detail=True, methods=['post'])
+    def update_location(self, request, pk=None):
+        delivery = self.get_object()  
+        lat = request.data.get('lat')
+        lng = request.data.get('lng')
+        
+        if lat is not None and lng is not None:
+            delivery.current_lat = float(lat)
+            delivery.current_lng = float(lng)
+            delivery.updated_at = timezone.now()
+            delivery.save()
+            return Response({'status': 'Location Updated'})
+        return Response({'error': 'Invalid Coordinates'}, status=400)
 
     # Rider Completes a Job
     @action(detail=True, methods=['post'])
     def complete_job(self, request, pk=None):
         delivery = self.get_object()
-        
         delivery.status = 'delivered'
-        delivery.save()
-        
+        delivery.save()  
         return Response({'status': 'Job Completed'})
-    
-    # User cancel a order 
+
+    # User cancel a order
     @action(detail=True, methods=['post'])
     def cancel_order(self, request, pk=None):
         delivery = self.get_object()
@@ -708,21 +749,6 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             
         return Response({'status': 'Delivery Cancelled and Items Restocked'})
     
-     #update riders location
-    @action(detail=True, methods=['post'])
-    def update_location(self, request, pk=None):
-        delivery = self.get_object()
-        
-        lat = request.data.get('lat')
-        lng = request.data.get('lng')
-        
-        if lat is not None and lng is not None:
-            delivery.current_lat = float(lat)
-            delivery.current_lng = float(lng)
-            delivery.save()
-            return Response({'status': 'Location Updated'})
-        
-        return Response({'error': 'Invalid Coordinates'}, status=400)
 
 # Order viewset
 class OrderViewSet(viewsets.ModelViewSet):
@@ -938,3 +964,31 @@ def calculate_delivery_fee(request):
         'route_geometry': route_geometry,
         'message': f"Distance: {distance}. Cost: KSh {cost}"
     })
+
+
+# Rider Earnings
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def rider_earnings(request):
+    if request.user.user_type != 'rider':
+        return Response({'error': 'Unauthorized'}, status=403)
+    
+    # Calculate totals
+    total_earnings = Delivery.objects.filter(rider=request.user, status='delivered').aggregate(Sum('transport_cost'))['transport_cost__sum'] or 0
+    
+    # Get recent transactions (completed deliveries)
+    recent_jobs = Delivery.objects.filter(rider=request.user, status='delivered').order_by('-delivered_at')[:10]
+    serializer = DeliverySerializer(recent_jobs, many=True)
+    
+    return Response({
+        'balance': total_earnings, # Simplified for demo (Total = Balance)
+        'total_jobs': recent_jobs.count(),
+        'history': serializer.data
+    })
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def request_withdrawal(request):
+    amount = request.data.get('amount')
+    # Implement logic to check balance > amount, then create a Withdrawal Request model
+    return Response({'status': 'Withdrawal request received for KSh ' + str(amount)})
