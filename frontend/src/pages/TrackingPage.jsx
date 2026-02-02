@@ -26,10 +26,10 @@ const TrackingPage = () => {
     const [geoCoords, setGeoCoords] = useState({ start: null, end: null, rider: null });
     const [routePath, setRoutePath] = useState(null);
     const [eta, setEta] = useState(null);
-    const [isFullScreen, setIsFullScreen] = useState(false); // <--- NEW STATE
+    const [isFullScreen, setIsFullScreen] = useState(false);
 
     const [processing, setProcessing] = useState(false);
-    const hasAutoCalculated = useRef(false);
+    const hasCalculated = useRef(false);
 
     // --- 1. DATA LOADING ---
     useEffect(() => {
@@ -50,9 +50,11 @@ const TrackingPage = () => {
                     setBooksTotal(total);
                 }
 
-                if (!hasAutoCalculated.current && data.pickup_location && data.dropoff_location) {
-                    hasAutoCalculated.current = true;
-                    await performCalculation(data.pickup_location, data.dropoff_location, !!data.swap, false);
+                if (data.pickup_location && data.dropoff_location) {
+                    if (!hasCalculated.current || !routePath) {
+                        hasCalculated.current = true;
+                        await performCalculation(data.pickup_location, data.dropoff_location, !!data.swap, false);
+                    }
                 }
 
                 if (data.current_lat) setGeoCoords(prev => ({ ...prev, rider: [data.current_lat, data.current_lng] }));
@@ -64,7 +66,7 @@ const TrackingPage = () => {
         fetchData();
         const interval = setInterval(fetchData, 8000);
         return () => clearInterval(interval);
-    }, [id]);
+    }, [id, routePath]); // Add routePath as dep to retry if missing
 
     // --- 2. WEBSOCKET ---
     useEffect(() => {
@@ -87,37 +89,48 @@ const TrackingPage = () => {
     const performCalculation = async (start, end, isSwapMode, saveToDb) => {
         try {
             const res = await calculateDeliveryFee(start, end, isSwapMode);
-            setDeliveryFee(res.data.delivery_fee);
-            setGeoCoords(prev => ({ ...prev, start: res.data.pickup_coords, end: res.data.dropoff_coords }));
+            if (res.data.pickup_coords && res.data.dropoff_coords) {
+                setGeoCoords(prev => ({
+                    ...prev,
+                    start: res.data.pickup_coords,
+                    end: res.data.dropoff_coords
+                }));
+            }
 
+            // 2. Update Route Path
             if (res.data.route_geometry?.coordinates) {
                 setRoutePath(res.data.route_geometry.coordinates.map(c => [c[1], c[0]]));
             }
+
+            // Handle different fee key names from backend
+            const cost = res.data.fee || res.data.delivery_fee;
+            setDeliveryFee(cost);
 
             if (saveToDb) {
                 await updateDelivery(id, {
                     pickup_location: start,
                     dropoff_location: end,
-                    transport_cost: res.data.delivery_fee
+                    transport_cost: cost
                 });
             }
             return res.data;
-        } catch (e) { throw e; }
+        } catch (e) { console.error("Calc Error:", e); }
     };
 
-    const handleUpdateLocation = async (type, value) => {
-        setProcessing(true);
+    const handleUpdateLocation = async (type, newLocation) => {
         try {
-            const newPickup = type === 'pickup' ? value : pickup;
-            const newDropoff = type === 'dropoff' ? value : dropoff;
+            // 1. Determine new pair
+            const start = type === 'pickup' ? newLocation : pickup;
+            const end = type === 'dropoff' ? newLocation : dropoff;
 
-            await performCalculation(newPickup, newDropoff, !!delivery.swap, true);
-            setPickup(newPickup);
-            setDropoff(newDropoff);
-            alert("Location Updated & Price Recalculated.");
-        } catch (e) {
-            alert("Could not calculate route. Check location spelling.");
-        } finally { setProcessing(false); }
+            if (type === 'pickup') setPickup(newLocation);
+            if (type === 'dropoff') setDropoff(newLocation);
+
+            // 2. Recalculate & Save
+            await performCalculation(start, end, !!delivery.swap, true);
+        } catch (err) {
+            console.error(err);
+        }
     };
 
     const handlePay = async (phone) => {
@@ -196,14 +209,19 @@ const TrackingPage = () => {
                         isSwap={!!delivery.swap}
                         status={delivery.status}
                         eta={eta}
-                        isFullScreen={isFullScreen} // Pass state
-                        onToggleFullScreen={() => setIsFullScreen(!isFullScreen)} // Pass toggle handler
+                        isFullScreen={isFullScreen}
+                        onToggleFullScreen={() => setIsFullScreen(!isFullScreen)}
                     />
                 </div>
             </div>
 
             {/* Chat */}
-            {delivery.conversation_id && <ChatWidget conversationId={delivery.conversation_id} />}
+            {delivery.conversation_id && (
+                <ChatWidget
+                    conversationId={delivery.conversation_id}
+                    delivery={delivery}
+                />
+            )}
         </div>
     );
 };

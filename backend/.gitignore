@@ -1,0 +1,13 @@
+# Security
+.env
+db.sqlite3
+
+# Python / Django
+*.pyc
+__pycache__/
+staticfiles/
+
+# Virtual Environment (Ignore the folder itself)
+myvenv/
+venv/
+env/

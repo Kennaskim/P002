@@ -220,9 +220,10 @@ class Delivery(models.Model):
     # Logistics Info
     pickup_location = models.CharField(max_length=255) # Seller's location
     dropoff_location = models.CharField(max_length=255) # Buyer's location
-    rider_phone = models.CharField(max_length=15, blank=True, null=True) # Rider Contact
     tracking_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    rider = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries_assigned')
+    rider_phone = models.CharField(max_length=15, blank=True, null=True) # Rider Contact
     
     # Transport Cost (Standard rate for Nyeri)
     transport_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
@@ -238,22 +239,58 @@ class Delivery(models.Model):
         return f"Delivery {self.tracking_code or 'Pending'}"
 
 class Payment(models.Model):
+    PAYMENT_METHOD_CHOICES = (
+        ('mpesa', 'M-Pesa'),
+        ('card', 'Credit(Paystack)'),
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     delivery = models.OneToOneField(Delivery, on_delete=models.CASCADE, related_name='payment')
     
-    phone_number = models.CharField(max_length=15) # M-Pesa Number
+    phone_number = models.CharField(max_length=15) 
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, default='mpesa') 
+    paystack_ref = models.CharField(max_length=100, blank=True, null=True)
+
+    # M-Pesa Number
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     transaction_code = models.CharField(max_length=50, blank=True, null=True) # e.g. QKD920...
     is_successful = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Payment {self.transaction_code} - {self.amount}"
+        return f"Payment {self.transaction_code or self.paystack_ref} - {self.amount}"
+
+class Wallet(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='wallet')
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s Wallet (KSh {self.balance})"
+
+class WalletTransaction(models.Model):
+    TRANSACTION_TYPES = (
+        ('credit', 'Credit (Earnings)'),
+        ('debit', 'Debit (Withdrawal)'),
+    )
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='transactions')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
+    description = models.CharField(max_length=255) 
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.transaction_type} - {self.amount}"
   
 from django.dispatch import receiver
+from django.db.models.signals import post_save
 from django_rest_passwordreset.signals import reset_password_token_created
 from django.core.mail import send_mail
 from django.urls import reverse
+# Create wallet for new users
+@receiver(post_save, sender=User)
+def create_user_wallet(sender, instance, created, **kwargs):
+    if created:
+        Wallet.objects.create(user=instance)
 
 @receiver(reset_password_token_created)
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):

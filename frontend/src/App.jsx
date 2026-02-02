@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -20,6 +21,7 @@ import CartPage from './pages/CartPage';
 import TrackingPage from './pages/TrackingPage';
 import RiderPage from './pages/RiderPage';
 import EarningsPage from './pages/EarningsPage';
+import PaymentVerifyPage from './pages/PaymentVerifyPage';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -53,8 +55,9 @@ function App() {
               <Route path="/chat/:conversationId" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
               <Route path="/cart" element={<PrivateRoute><CartPage /></PrivateRoute>} />
               <Route path="/rider" element={<PrivateRoute><RiderPage /></PrivateRoute>} />
-              <Route path="rider/earnings" element={<PrivateRoute><EarningsPage /></PrivateRoute>} />
+              <Route path="/earnings" element={<PrivateRoute><EarningsPage /></PrivateRoute>} />
               <Route path="/tracking/:id" element={<TrackingPage />} />
+              <Route path="/payment/verify" element={<ProtectedRoute><PaymentVerifyPage /></ProtectedRoute>} />
             </Route>
           </Routes>
         </CartProvider>

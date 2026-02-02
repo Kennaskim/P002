@@ -4,7 +4,11 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,  
     TokenRefreshView,            
 )
-from .views import RegisterView, CurrentUserView, TextbookViewSet, ListingViewSet, BookshopViewSet, SchoolViewSet, SchoolBookListsView, ConversationListView, MessageListView, FindOrCreateConversationView, CartView, ReviewViewSet, UserReviewsView, MyListingsView, MyBookListsView, MyProfileView, SwapRequestViewSet, DeliveryViewSet, OrderViewSet, PaymentViewSet, calculate_delivery_fee, BookListViewSet
+from .views import (RegisterView, CurrentUserView, TextbookViewSet, ListingViewSet,
+ BookshopViewSet, SchoolViewSet, SchoolBookListsView, ConversationListView, MessageListView, 
+ FindOrCreateConversationView, CartView, ReviewViewSet, UserReviewsView, MyListingsView, 
+ MyBookListsView, MyProfileView, SwapRequestViewSet, DeliveryViewSet, OrderViewSet, 
+ PaymentViewSet, BookListViewSet, MyEarningsView, WithdrawalView)
 #router
 router = DefaultRouter()
 #register viewsets
@@ -35,5 +39,6 @@ urlpatterns = [
     path('my-listings/', MyListingsView.as_view(), name='my_listings'),
     path('my-profile/', MyProfileView.as_view(), name='my-profile'),
     path('password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
-    path('calculate-delivery-fee/', calculate_delivery_fee, name='calculate_delivery_fee'),
+    path('earnings/', MyEarningsView.as_view(), name='my-earnings'),
+    path('earnings/withdraw/', WithdrawalView.as_view(), name='withdraw'),
 ]

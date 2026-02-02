@@ -11,6 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,10 +24,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-31f6cufau4o+#9@jk!-8%u35lux)j^2bpps+9@=4tp%0($wpjb'
-
+SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = []
 
@@ -170,14 +173,18 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'kennaskimaita10@gmail.com'
-EMAIL_HOST_PASSWORD = 'roac ygzj ikpt akth'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = 'Textbook Exchange <noreply@textbookexchange.com>'
 
 # Mpesa configuration
 MPESA_ENVIRONMENT = 'sandbox' 
-MPESA_CONSUMER_KEY = 'i4nWtGuZKWLp9LgMe1CtJ4jW4g7cpkAfGjTwJNrhUfYqjcu5'
-MPESA_CONSUMER_SECRET = 'nSGdx3CXmEMtWeAadTbA6RBfdt2GqqsADiutwbGLjGMbEpHmUAZskU9fI24vmA1A'
+MPESA_CONSUMER_KEY = os.getenv('MPESA_CONSUMER_KEY')
+MPESA_CONSUMER_SECRET = os.getenv('MPESA_CONSUMER_SECRET')
 MPESA_SHORTCODE = '174379' 
-MPESA_PASSKEY = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919' 
-MPESA_CALLBACK_URL = 'https://unjustly-fragmented-quinn.ngrok-free.dev/api/mpesa/callback/'
+MPESA_PASSKEY = os.getenv('MPESA_PASSKEY') 
+MMPESA_CALLBACK_URL = 'https://unjustly-fragmented-quinn.ngrok-free.dev/api/mpesa/callback/'
+
+#paystack
+PAYSTACK_SECRET_KEY = os.getenv('PAYSTACK_SECRET_KEY') 
+PAYSTACK_PUBLIC_KEY = os.getenv('PAYSTACK_PUBLIC_KEY')

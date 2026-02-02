@@ -26,7 +26,7 @@ const RiderDashboard = ({ user, logout }) => {
                         <p><span className="text-gray-500">Vehicle:</span> <span className="font-medium">Motorbike</span></p>
                         <div className="mt-4 pt-4 border-t">
                             <button
-                                onClick={() => navigate('/rider/earnings')}
+                                onClick={() => navigate('/earnings')}
                                 className="w-full bg-gray-100 text-gray-800 py-2 rounded font-bold hover:bg-gray-200"
                             >
                                 💰 View Earnings History

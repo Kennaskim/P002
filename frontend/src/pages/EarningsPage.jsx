@@ -1,52 +1,85 @@
-// frontend/src/pages/EarningsPage.jsx
 import React, { useState, useEffect } from 'react';
-import api from '../utils/api';
+import { getMyEarnings, requestWithdrawal } from '../utils/api';
+// REMOVED: import Layout from '../components/Layout'; <--- Remove this import
 
 const EarningsPage = () => {
     const [data, setData] = useState({ balance: 0, history: [] });
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.get('rider/earnings/').then(res => setData(res.data));
+        getMyEarnings()
+            .then(res => {
+                setData(res.data);
+                setLoading(false);
+            })
+            .catch(err => {
+                console.error("Error fetching earnings:", err);
+                setLoading(false);
+                alert("Could not load wallet. Is the server running?");
+            });
     }, []);
 
     const handleWithdraw = () => {
-        const amount = prompt("Enter amount to withdraw:");
+        const amount = prompt("Enter amount to withdraw (KSh):");
         if (amount) {
-            api.post('rider/withdraw/', { amount }).then(() => alert("Request Sent!"));
+            requestWithdrawal(amount)
+                .then(res => {
+                    alert("Withdrawal Successful!");
+                    setData(prev => ({
+                        ...prev,
+                        balance: res.data.new_balance,
+                        history: [{
+                            id: Date.now(),
+                            description: "Withdrawal Request",
+                            amount: amount,
+                            transaction_type: 'debit',
+                            timestamp: new Date().toISOString()
+                        }, ...prev.history]
+                    }));
+                })
+                .catch(err => alert(err.response?.data?.error || "Failed"));
         }
     };
 
-    return (
-        <div className="min-h-screen bg-gray-50 p-6">
-            <h1 className="text-2xl font-bold mb-6">💰 My Wallet</h1>
+    // REMOVED: <Layout> wrapper
+    if (loading) return <div className="p-10 text-center">Loading Wallet...</div>;
 
-            {/* Balance Card */}
+    return (
+        // REMOVED: <Layout> opening tag
+        <div className="max-w-4xl mx-auto p-6">
+            <h1 className="text-2xl font-bold mb-6 text-gray-800">💰 My Wallet</h1>
+
             <div className="bg-slate-900 text-white rounded-2xl p-8 mb-8 shadow-xl relative overflow-hidden">
                 <p className="text-slate-400 text-sm font-bold uppercase">Available Balance</p>
-                <h2 className="text-4xl font-bold mt-2">KSh {data.balance.toLocaleString()}</h2>
+                <h2 className="text-4xl font-bold mt-2">KSh {Number(data.balance).toLocaleString()}</h2>
                 <button
                     onClick={handleWithdraw}
                     className="mt-6 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-bold transition"
                 >
                     Request Withdrawal
                 </button>
-                <div className="absolute right-[-20px] bottom-[-20px] text-9xl opacity-10">💵</div>
             </div>
 
-            {/* History */}
-            <h3 className="font-bold text-gray-700 mb-4">Recent Earnings</h3>
+            <h3 className="font-bold text-gray-700 mb-4">Transaction History</h3>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                {data.history.map(job => (
-                    <div key={job.id} className="p-4 border-b last:border-0 flex justify-between items-center hover:bg-gray-50">
-                        <div>
-                            <p className="font-bold text-gray-800">Delivery #{job.tracking_code}</p>
-                            <p className="text-xs text-gray-500">{new Date(job.delivered_at).toLocaleDateString()}</p>
+                {data.history.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">No transactions yet.</div>
+                ) : (
+                    data.history.map((txn, index) => (
+                        <div key={index} className="p-4 border-b last:border-0 flex justify-between items-center hover:bg-gray-50">
+                            <div>
+                                <p className="font-bold text-gray-800">{txn.description}</p>
+                                <p className="text-xs text-gray-500">{new Date(txn.timestamp).toLocaleDateString()} {new Date(txn.timestamp).toLocaleTimeString()}</p>
+                            </div>
+                            <span className={`font-bold ${txn.transaction_type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
+                                {txn.transaction_type === 'credit' ? '+' : '-'} KSh {txn.amount}
+                            </span>
                         </div>
-                        <span className="text-green-600 font-bold">+ KSh {job.transport_cost}</span>
-                    </div>
-                ))}
+                    ))
+                )}
             </div>
         </div>
+        // REMOVED: </Layout> closing tag
     );
 };
 

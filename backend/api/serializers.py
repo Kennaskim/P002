@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review, SwapRequest, Order, Delivery, Payment
+from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review, SwapRequest, Order, Delivery, Payment, Wallet, WalletTransaction
 
 User = get_user_model()
 
@@ -15,7 +15,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'username', 'password', 'user_type', 'location']
+        fields = ['email', 'username', 'password', 'user_type', 'location', 'national_id', 'phone_number']
 
     def create(self, validated_data):
         national_id = validated_data.get('national_id', '')
@@ -84,59 +84,15 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         fields = ['id', 'sender', 'content', 'timestamp', 'is_read']
 
-class ConversationSerializer(serializers.ModelSerializer):
-    other_user = serializers.SerializerMethodField()
-    last_message = serializers.SerializerMethodField()
-    listing = ListingSerializer(read_only=True)
-    class Meta:
-        model = Conversation
-        fields = ['id', 'other_user', 'last_message', 'updated_at', 'listing']
-
-    def get_other_user(self, obj):
-        # Find the participant who is NOT the request user
-        request = self.context.get('request')
-        if request and request.user:
-            other = obj.participants.exclude(id=request.user.id).first()
-            if other:
-                return UserSerializer(other).data
-        return None
-
-    def get_last_message(self, obj):
-        last_msg = obj.messages.last()
-        return last_msg.content if last_msg else ""
-
-class CartItemSerializer(serializers.ModelSerializer):
-    listing = ListingSerializer(read_only=True) # Show full listing details
-    class Meta:
-        model = CartItem
-        fields = ['id', 'listing', 'added_at']
-
-class CartSerializer(serializers.ModelSerializer):
-    items = CartItemSerializer(many=True, read_only=True)
-    total = serializers.SerializerMethodField()
-    class Meta:
-        model = Cart
-        fields = ['id', 'items', 'total']
-
-    def get_total(self, obj):
-        # Calculate total price of all items in cart
-        return sum(item.listing.price for item in obj.items.all())
-
-class ReviewSerializer(serializers.ModelSerializer):
-    reviewer = UserSerializer(read_only=True) # Show who wrote the review
-    class Meta:
-        model = Review
-        fields = ['id', 'listing', 'reviewer', 'seller', 'rating', 'comment', 'created_at']
-        read_only_fields = ('id', 'reviewer', 'seller', 'created_at')
-
 class OrderSerializer(serializers.ModelSerializer):
     #delivery = DeliverySerializer(read_only=True)
     listing = ListingSerializer(read_only=True)
     buyer = UserSerializer(read_only=True)
-    
+    seller = UserSerializer(read_only=True)
+   
     class Meta:
         model = Order
-        fields = ['id', 'buyer', 'listing', 'amount_paid', 'created_at']
+        fields = ['id', 'buyer', 'listing', 'amount_paid', 'created_at', 'seller']
 
 class SwapRequestSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
@@ -169,6 +125,8 @@ class SwapRequestSerializer(serializers.ModelSerializer):
             return obj.delivery.id
         return None
 
+
+
 class DeliverySerializer(serializers.ModelSerializer):
     # We are adding a custom field that doesn't exist in the Delivery model
     seller_name = serializers.SerializerMethodField()
@@ -180,14 +138,33 @@ class DeliverySerializer(serializers.ModelSerializer):
     seller_location = serializers.SerializerMethodField()
     pickup_contact = serializers.SerializerMethodField()
     dropoff_contact = serializers.SerializerMethodField()
+    pickup_name = serializers.SerializerMethodField()
+    dropoff_name = serializers.SerializerMethodField()
     rider_phone = serializers.SerializerMethodField()
 
     orders = OrderSerializer(many=True, read_only=True)
     swap = SwapRequestSerializer(read_only=True)
+    rider = UserSerializer(read_only=True)
 
     class Meta:
         model = Delivery
         fields = '__all__'
+
+    def get_pickup_name(self, obj):
+        try:
+            if obj.swap: return obj.swap.sender.username
+            if obj.orders.exists(): return obj.orders.first().listing.listed_by.username
+        except:
+            return "Client"
+        return "Client"
+
+    def get_dropoff_name(self, obj):
+        try:
+            if obj.swap: return obj.swap.receiver.username
+            if obj.orders.exists(): return obj.orders.first().buyer.username
+        except:
+            return "Client"
+        return "Client"
 
     def get_seller_name(self, obj):
         try:
@@ -245,11 +222,74 @@ class DeliverySerializer(serializers.ModelSerializer):
         conv = obj.conversations.first()
         return conv.id if conv else None
 
+class ConversationSerializer(serializers.ModelSerializer):
+    other_user = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+    listing = ListingSerializer(read_only=True)
+    class Meta:
+        model = Conversation
+        fields = ['id', 'other_user', 'last_message', 'updated_at', 'listing']
+
+    def get_other_user(self, obj):
+        # Find the participant who is NOT the request user
+        request = self.context.get('request')
+        if request and request.user:
+            other = obj.participants.exclude(id=request.user.id).first()
+            if other:
+                return UserSerializer(other).data
+        return None
+
+    def get_last_message(self, obj):
+        last_msg = obj.messages.last()
+        return last_msg.content if last_msg else ""
+
+class CartItemSerializer(serializers.ModelSerializer):
+    listing = ListingSerializer(read_only=True) # Show full listing details
+    class Meta:
+        model = CartItem
+        fields = ['id', 'listing', 'added_at']
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+    total = serializers.SerializerMethodField()
+    class Meta:
+        model = Cart
+        fields = ['id', 'items', 'total']
+
+    def get_total(self, obj):
+        # Calculate total price of all items in cart
+        return sum(item.listing.price for item in obj.items.all())
+
+class ReviewSerializer(serializers.ModelSerializer):
+    reviewer = UserSerializer(read_only=True) # Show who wrote the review
+    class Meta:
+        model = Review
+        fields = ['id', 'listing', 'reviewer', 'seller', 'rating', 'comment', 'created_at']
+        read_only_fields = ('id', 'reviewer', 'seller', 'created_at')
+
+
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = '__all__'
-        read_only_fields = ['is_successful', 'transaction_code']
+        read_only_fields = ['is_successful', 'transaction_code', 'stripe_payment_intent_id', 'timestamp']
+        
+    def validate(self, data):
+        if data.get('payment_method') == 'mpesa' and not data.get('phone_number'):
+            raise serializers.ValidationError({"phone_number": "Phone number is required for M-Pesa payments."})
+        return data
+
+class WalletTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WalletTransaction
+        fields = ['id', 'amount', 'transaction_type', 'description', 'timestamp']
+
+class WalletSerializer(serializers.ModelSerializer):
+    transactions = WalletTransactionSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Wallet
+        fields = ['balance', 'last_updated', 'transactions']
 
 
 

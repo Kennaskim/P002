@@ -82,14 +82,36 @@ export const rejectSwap = (id) => api.post(`swaps/${id}/reject/`);
 // --- Delivery & Payments ---
 export const getDelivery = (id) => api.get(`deliveries/${id}/`);
 export const updateDelivery = (id, data) => api.patch(`/deliveries/${id}/`, data);
-export const calculateDeliveryFee = (pickup, dropoff) => {
-    return api.post(`calculate-delivery-fee/`, {
-        pickup: pickup,
-        dropoff: dropoff
-    });
+export const calculateDeliveryFee = (pickup, dropoff, isSwap = false, deliveryId = null) => {
+    const payload = {};
+    // If we have an ID, use it (Backend Mode 1)
+    if (deliveryId) {
+        payload.delivery_id = deliveryId;
+    } else {
+        // Otherwise use strings (Backend Mode 2)
+        payload.pickup = pickup;
+        payload.dropoff = dropoff;
+        payload.is_swap = isSwap;
+    }
+    // CORRECT URL: Must match the ViewSet action path
+    return api.post('deliveries/calculate_delivery_fee/', payload);
 };
 export const initiateMpesa = (data) => api.post('payments/initiate_mpesa/', data);
 export const cancelDelivery = (id) => api.post(`deliveries/${id}/cancel_order/`);
+// Additional payment  
+export const initiatePaystackPayment = async (deliveryId) => {
+    const response = await api.post('payments/initiate_paystack/', { delivery_id: deliveryId });
+    return response.data; // Should contain { authorization_url }
+};
+
+export const verifyPaystackPayment = async (reference) => {
+    const response = await api.post('payments/verify_paystack/', { reference });
+    return response.data; // Should contain { status, tracking_code }
+};
+// wallet/earnings
+export const getMyEarnings = () => api.get('earnings/');
+export const requestWithdrawal = (amount) => api.post('earnings/withdraw/', { amount });
+
 
 // --- Rider Functions ---
 export const getAvailableDeliveries = () => api.get('deliveries/?view=rider');

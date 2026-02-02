@@ -8,10 +8,12 @@ from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
 from django.db import transaction
-from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review, SwapRequest, Order, Delivery, Payment
-from .serializers import UserSerializer, RegisterSerializer, TextbookSerializer, ListingSerializer, BookshopProfileSerializer, SchoolProfileSerializer, BookListSerializer, ConversationSerializer, MessageSerializer, CartItemSerializer, CartSerializer, ReviewSerializer, SwapRequestSerializer, OrderSerializer, DeliverySerializer, PaymentSerializer
+from django.conf import settings
+from decimal import Decimal
+from .models import Textbook, Listing, BookshopProfile, SchoolProfile, BookList, Conversation, Message, Cart, CartItem, Review, SwapRequest, Order, Delivery, Payment, Wallet, WalletTransaction
+from .serializers import UserSerializer, RegisterSerializer, TextbookSerializer, ListingSerializer, BookshopProfileSerializer, SchoolProfileSerializer, BookListSerializer, ConversationSerializer, MessageSerializer, CartItemSerializer, CartSerializer, ReviewSerializer, SwapRequestSerializer, OrderSerializer, DeliverySerializer, PaymentSerializer, WalletSerializer, WalletTransactionSerializer
 from .permissions import IsOwnerOrReadOnly
-import random, string, csv, io, openpyxl
+import random, string, csv, io, openpyxl, requests
 from .utils import get_delivery_cost
 from .mpesa_utils import trigger_stk_push
 
@@ -627,6 +629,62 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             Q(swap__sender=user) | 
             Q(swap__receiver=user)
         ).order_by('-created_at').distinct().order_by('-created_at')
+
+    # Calculate Delivery Fee
+    @action(detail=False, methods=['post'])
+    def calculate_delivery_fee(self, request):
+        delivery_id = request.data.get('delivery_id')
+        
+        if delivery_id:
+            try:
+                delivery = Delivery.objects.get(id=delivery_id)
+                pickup = delivery.pickup_location
+                dropoff = delivery.dropoff_location
+                is_swap = delivery.swap is not None
+
+                # Calculate
+                cost, distance, pickup_coords, dropoff_coords, route_geometry, error = get_delivery_cost(pickup, dropoff, is_swap)
+
+                if error:
+                    return Response({'error': error}, status=400)
+
+                # SAVE the new cost to the database
+                delivery.transport_cost = cost
+                delivery.save()
+
+                return Response({
+                    'fee': cost,
+                    'distance': distance,
+                    'pickup_coords': pickup_coords,
+                    'dropoff_coords': dropoff_coords,
+                    'route_geometry': route_geometry,
+                    'message': f"Location updated. Distance: {distance}. New Cost: KSh {cost}"
+                })
+
+            except Delivery.DoesNotExist:
+                return Response({'error': 'Delivery not found'}, status=404)
+
+        else:
+            pickup = request.data.get('pickup')
+            dropoff = request.data.get('dropoff')
+            is_swap = request.data.get('is_swap', False)
+
+            if not pickup or not dropoff:
+                return Response({'error': 'Both addresses are required'}, status=400)
+
+            cost, distance, pickup_coords, dropoff_coords, route_geometry, error = get_delivery_cost(pickup, dropoff, is_swap)
+
+            if error:
+                return Response({'error': error}, status=400)
+
+            return Response({
+                'delivery_fee': cost,
+                'distance': distance,
+                'pickup_coords': pickup_coords,
+                'dropoff_coords': dropoff_coords,
+                'route_geometry': route_geometry,
+                'message': f"Distance: {distance}. Cost: KSh {cost}"
+            })
     # Rider Accepts a Job
     @action(detail=True, methods=['post'])
     def accept_job(self, request, pk=None):
@@ -646,22 +704,43 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         delivery.rider_phone = user.phone_number
         delivery.save()
         
-        customer = None
+        conversation, created = Conversation.objects.get_or_create(
+            delivery=delivery,
+            defaults={'listing': None} 
+        )
+
+        # List of people to add
+        participants_to_add = [user] # Always add the Rider
+
         if delivery.orders.exists():
-            customer = delivery.orders.first().buyer
+            # SCENARIO A: Normal Order
+            # Add Buyer AND Seller
+            order = delivery.orders.first()
+            participants_to_add.append(order.buyer)
+            participants_to_add.append(order.listing.listed_by)
+            
         elif delivery.swap:
-            # For swaps, the proposer (sender) is usually the one tracking/paying
-            customer = delivery.swap.sender
-        
-        if customer:
-            # Check if chat already exists for this delivery
-            conversation, created = Conversation.objects.get_or_create(
-                delivery=delivery,
-                defaults={'listing': None} 
+            # SCENARIO B: Swap Request
+            # Add Swap Sender AND Swap Receiver
+            participants_to_add.append(delivery.swap.sender)
+            participants_to_add.append(delivery.swap.receiver)
+
+        # Add everyone to the chat at once
+        conversation.participants.add(*participants_to_add)
+
+        # Send System Message
+        if created:
+             Message.objects.create(
+                conversation=conversation,
+                sender=user,
+                content="🔔 SYSTEM: Rider has joined. Delivery Group Chat (Rider + Buyer + Seller) is active."
             )
-            # Ensure both are participants
-            conversation.participants.add(user, customer)
-        return Response({'status': 'Job Accepted', 'tracking_code': delivery.tracking_code, 'delivery': DeliverySerializer(delivery).data})
+
+        return Response({
+            'status': 'Job Accepted', 
+            'tracking_code': delivery.tracking_code, 
+            'delivery': DeliverySerializer(delivery).data
+        })
 
     
     #update riders location
@@ -683,10 +762,64 @@ class DeliveryViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def complete_job(self, request, pk=None):
         delivery = self.get_object()
-        delivery.status = 'delivered'
-        delivery.save()  
-        return Response({'status': 'Job Completed'})
+        user = request.user
+        
+        if delivery.status == 'delivered':
+            return Response({'error': 'Job already completed'}, status=400)
 
+        # --- FIX 1: Self-Healing Logic (Assign Rider if missing) ---
+        if not delivery.rider and user.user_type == 'rider':
+            delivery.rider = user
+            delivery.save()
+            print(f"⚠️ Fixed missing rider. Assigned to {user.username}")
+
+        # 1. Update Status
+        delivery.status = 'delivered'
+        delivery.save()
+
+        # 2. DISTRIBUTE EARNINGS
+        with transaction.atomic():
+            # A. Pay the Rider
+            if delivery.rider:
+                rider_wallet, _ = Wallet.objects.get_or_create(user=delivery.rider)
+                
+                # Ensure transport cost is not 0
+                amount_to_pay = delivery.transport_cost
+                if amount_to_pay <= 0:
+                    amount_to_pay = Decimal('200.00') 
+                
+                # --- FIX 2: Convert Balance to Decimal before adding ---
+                current_balance = Decimal(str(rider_wallet.balance))
+                rider_wallet.balance = current_balance + amount_to_pay
+                rider_wallet.save()
+                
+                WalletTransaction.objects.create(
+                    wallet=rider_wallet,
+                    amount=amount_to_pay,
+                    transaction_type='credit',
+                    description=f"Delivery Fee for Order #{delivery.tracking_code}"
+                )
+                print(f"DEBUG: Rider Paid {amount_to_pay}. New Balance: {rider_wallet.balance}")
+            
+            # B. Pay the Sellers
+            for order in delivery.orders.all():
+                seller = order.listing.listed_by
+                seller_wallet, _ = Wallet.objects.get_or_create(user=seller)
+                
+                # --- FIX 3: Convert Balance to Decimal before adding ---
+                current_seller_balance = Decimal(str(seller_wallet.balance))
+                seller_wallet.balance = current_seller_balance + order.amount_paid
+                seller_wallet.save()
+                
+                WalletTransaction.objects.create(
+                    wallet=seller_wallet,
+                    amount=order.amount_paid,
+                    transaction_type='credit',
+                    description=f"Sale of '{order.listing.textbook.title}'"
+                )
+                print(f"DEBUG: Seller Paid {order.amount_paid}. New Balance: {seller_wallet.balance}")
+
+        return Response({'status': 'Job Completed & Wallets Credited'})
     # User cancel a order
     @action(detail=True, methods=['post'])
     def cancel_order(self, request, pk=None):
@@ -934,61 +1067,131 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         # Always return 200 OK to Safaricom so they stop sending the message
         return Response({'status': 'Callback Received'})
+
+    @action(detail=False, methods=['post'])
+    def initiate_paystack(self, request):
         
+        delivery_id = request.data.get('delivery_id')
+        email = request.user.email  # Paystack requires an email
 
-# Calculate delivery fee
-@api_view(['POST'])
-@permission_classes([permissions.AllowAny])
-def calculate_delivery_fee(request):
-    """
-    Calculates the delivery fee before the user pays.
-    Expected JSON: { "pickup": "Dedan Kimathi", "dropoff": "Nyeri Town" }
-    """
-    pickup = request.data.get('pickup')
-    dropoff = request.data.get('dropoff')
-    is_swap = request.data.get('is_swap', False)
+        try:
+            delivery = Delivery.objects.get(id=delivery_id)
+        except Delivery.DoesNotExist:
+            return Response({'error': 'Delivery not found'}, status=404)
 
-    if not pickup or not dropoff:
-        return Response({'error': 'Both addresses are required'}, status=400)
+        # Calculate Total
+        books_total = sum(order.amount_paid for order in delivery.orders.all())
+        total_amount = books_total + delivery.transport_cost
+        
+        # Paystack expects amount in kobo/cents (Multiply by 100)
+        amount_in_kobo = int(total_amount * 100)
 
-    cost, distance, pickup_coords, dropoff_coords, route_geometry, error = get_delivery_cost(pickup, dropoff, is_swap)
+        url = "https://api.paystack.co/transaction/initialize"
+        headers = {
+            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "email": email,
+            "amount": amount_in_kobo,
+            "currency": "KES",
+            "callback_url": "http://localhost:5173/payment/verify", # Frontend URL to return to
+            "metadata": {
+                "delivery_id": delivery.id,
+                "user_id": request.user.id
+            }
+        }
 
-    if error:
-        return Response({'error': error}, status=400)
+        response = requests.post(url, headers=headers, json=data)
+        res_data = response.json()
 
-    return Response({
-        'delivery_fee': cost,
-        'distance': distance,
-        'pickup_coords': pickup_coords,
-        'dropoff_coords': dropoff_coords,
-        'route_geometry': route_geometry,
-        'message': f"Distance: {distance}. Cost: KSh {cost}"
-    })
+        if res_data['status']:
+            # Save the reference pending payment
+            Payment.objects.update_or_create(
+               delivery=delivery,
+                defaults={
+                    'user': request.user,
+                    'amount': total_amount,
+                    'payment_method': 'card',
+                    'paystack_ref': res_data['data']['reference'],
+                    'is_successful': False,
+                    # Optional: Clear old M-Pesa code if switching to card
+                    'transaction_code': None 
+                }
+            )
+            return Response({'authorization_url': res_data['data']['authorization_url']})
+        else:
+            return Response({'error': res_data['message']}, status=400)
 
+    @action(detail=False, methods=['post'])
+    def verify_paystack(self, request):
+        """
+        Called by Frontend after returning from Paystack.
+        We confirm with Paystack server-to-server that money was actually deducted.
+        """
+        reference = request.data.get('reference')
+        
+        url = f"https://api.paystack.co/transaction/verify/{reference}"
+        headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
 
-# Rider Earnings
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def rider_earnings(request):
-    if request.user.user_type != 'rider':
-        return Response({'error': 'Unauthorized'}, status=403)
-    
-    # Calculate totals
-    total_earnings = Delivery.objects.filter(rider=request.user, status='delivered').aggregate(Sum('transport_cost'))['transport_cost__sum'] or 0
-    
-    # Get recent transactions (completed deliveries)
-    recent_jobs = Delivery.objects.filter(rider=request.user, status='delivered').order_by('-delivered_at')[:10]
-    serializer = DeliverySerializer(recent_jobs, many=True)
-    
-    return Response({
-        'balance': total_earnings, # Simplified for demo (Total = Balance)
-        'total_jobs': recent_jobs.count(),
-        'history': serializer.data
-    })
+        response = requests.get(url, headers=headers)
+        res_data = response.json()
 
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def request_withdrawal(request):
-    amount = request.data.get('amount')
-    # Implement logic to check balance > amount, then create a Withdrawal Request model
-    return Response({'status': 'Withdrawal request received for KSh ' + str(amount)})
+        if res_data['status'] and res_data['data']['status'] == 'success':
+            # Payment Valid! Update DB
+            try:
+                payment = Payment.objects.get(paystack_ref=reference)
+                payment.is_successful = True
+                payment.save()
+
+                # Update Delivery Status
+                delivery = payment.delivery
+                delivery.status = 'paid'
+                delivery.tracking_code = f"TRK-{random.randint(1000, 9999)}"
+                delivery.save()
+
+                return Response({'status': 'Payment Verified', 'tracking_code': delivery.tracking_code})
+            except Payment.DoesNotExist:
+                return Response({'error': 'Payment record not found'}, status=404)
+        else:
+            return Response({'error': 'Verification failed'}, status=400)
+        
+class MyEarningsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        wallet, _ = Wallet.objects.get_or_create(user=request.user)
+        # Get last 20 transactions
+        transactions = WalletTransaction.objects.filter(wallet=wallet).order_by('-timestamp')[:20]
+        
+        return Response({
+            'balance': wallet.balance,
+            'history': WalletTransactionSerializer(transactions, many=True).data
+        })
+
+# 2. The Withdrawal View (This was missing!)
+class WithdrawalView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        amount = Decimal(request.data.get('amount', 0))
+        wallet, _ = Wallet.objects.get_or_create(user=request.user)
+
+        if amount <= 0:
+            return Response({'error': 'Invalid amount'}, status=400)
+        if wallet.balance < amount:
+            return Response({'error': 'Insufficient funds'}, status=400)
+
+        # 1. Deduct from Virtual Wallet
+        wallet.balance -= amount
+        wallet.save()
+
+        # 2. Log Transaction
+        WalletTransaction.objects.create(
+            wallet=wallet,
+            amount=amount,
+            transaction_type='debit',
+            description="Withdrawal Request"
+        )
+
+        return Response({'status': 'Withdrawal Successful', 'new_balance': wallet.balance})
