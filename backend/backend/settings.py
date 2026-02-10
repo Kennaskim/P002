@@ -183,7 +183,7 @@ MPESA_CONSUMER_KEY = os.getenv('MPESA_CONSUMER_KEY')
 MPESA_CONSUMER_SECRET = os.getenv('MPESA_CONSUMER_SECRET')
 MPESA_SHORTCODE = '174379' 
 MPESA_PASSKEY = os.getenv('MPESA_PASSKEY') 
-MMPESA_CALLBACK_URL = 'https://unjustly-fragmented-quinn.ngrok-free.dev/api/mpesa/callback/'
+MPESA_CALLBACK_URL = 'https://unjustly-fragmented-quinn.ngrok-free.dev/api/mpesa/callback/'
 
 #paystack
 PAYSTACK_SECRET_KEY = os.getenv('PAYSTACK_SECRET_KEY') 

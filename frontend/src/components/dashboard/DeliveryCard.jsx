@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import api, { initiatePaystackPayment } from '../../utils/api';
+// 👇 Added initiateMpesa to imports
+import api, { initiatePaystackPayment, initiateMpesa } from '../../utils/api';
 
 const DeliveryCard = ({ delivery, type, userId, navigate, user }) => {
     const [loading, setLoading] = useState(false);
@@ -9,6 +10,9 @@ const DeliveryCard = ({ delivery, type, userId, navigate, user }) => {
     const [location, setLocation] = useState(delivery.dropoff_location || '');
     const [deliveryFee, setDeliveryFee] = useState(delivery.transport_cost || 0);
     const [isCalculating, setIsCalculating] = useState(false);
+
+    // 👇 State for M-Pesa Phone
+    const [paymentPhone, setPaymentPhone] = useState('');
 
     // Derived Data
     const isSwap = type === 'swap';
@@ -57,12 +61,39 @@ const DeliveryCard = ({ delivery, type, userId, navigate, user }) => {
         }
     };
 
-    // --- FUNCTION: Single Payment Flow (Paystack) ---
-    const handlePayment = async () => {
+    // --- FUNCTION 1: M-Pesa STK Push (For Lecturer) ---
+    const handleMpesaPayment = async (e) => {
+        e.preventDefault();
+        if (!paymentPhone) return alert("Please enter a phone number");
+
         setLoading(true);
         try {
-            // We initiate Paystack. 
-            // Paystack will offer "Card" AND "M-Pesa" options on their secure page.
+            // Ensure cost is synced
+            await api.patch(`deliveries/${delivery.id}/`, { transport_cost: deliveryFee });
+
+            // Trigger STK
+            await initiateMpesa({ delivery_id: delivery.id, phone_number: paymentPhone });
+
+            alert("📲 STK Push Sent! Check your phone.");
+            setShowModal(false);
+
+            // Auto-reload to show 'Paid' status (for demo)
+            setTimeout(() => window.location.reload(), 3000);
+
+        } catch (error) {
+            console.error(error);
+            alert("M-Pesa Failed. Try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // --- FUNCTION 2: Paystack (Card) ---
+    const handlePaystackPayment = async () => {
+        setLoading(true);
+        try {
+            await api.patch(`deliveries/${delivery.id}/`, { transport_cost: deliveryFee });
+
             const data = await initiatePaystackPayment(delivery.id);
             if (data.authorization_url) {
                 window.location.href = data.authorization_url;
@@ -85,8 +116,8 @@ const DeliveryCard = ({ delivery, type, userId, navigate, user }) => {
                 <div className="flex items-center gap-3 mb-2">
                     <span className={`px-2 py-1 text-xs font-bold uppercase rounded ${badgeColor}`}>{badgeText}</span>
                     <span className={`text-xs font-bold uppercase ${delivery.status === 'delivered' ? 'text-green-600' :
-                            delivery.status === 'paid' ? 'text-blue-600' :
-                                delivery.status === 'cancelled' ? 'text-red-600' : 'text-yellow-600'
+                        delivery.status === 'paid' ? 'text-blue-600' :
+                            delivery.status === 'cancelled' ? 'text-red-600' : 'text-yellow-600'
                         }`}>• {delivery.status}</span>
                     <span className="text-xs text-gray-400">#{delivery.tracking_code || "PENDING"}</span>
                 </div>
@@ -128,16 +159,16 @@ const DeliveryCard = ({ delivery, type, userId, navigate, user }) => {
                 )}
             </div>
 
-            {/* --- SIMPLIFIED MODAL --- */}
+            {/* --- REVIEW & PAY MODAL --- */}
             {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
                     <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-gray-800">Review Details</h3>
                             <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
                         </div>
 
-                        {/* 1. Location Edit (Kept this because it affects price) */}
+                        {/* 1. Location Edit */}
                         <div className="mb-4">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Delivery Location</label>
                             <div className="flex gap-2">
@@ -166,17 +197,46 @@ const DeliveryCard = ({ delivery, type, userId, navigate, user }) => {
                             </div>
                         </div>
 
-                        {/* 3. Single Payment Button */}
-                        <button
-                            onClick={handlePayment}
-                            disabled={loading || isCalculating}
-                            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition flex justify-center items-center gap-2"
-                        >
-                            {loading ? 'Processing...' : `Proceed to Payment (Card or M-Pesa)`}
-                        </button>
-                        <p className="text-xs text-center text-gray-400 mt-2">
-                            You can choose M-Pesa or Card on the next screen.
-                        </p>
+                        {/* --- OPTION 1: M-PESA --- */}
+                        <div className="mb-6">
+                            <h4 className="text-xs font-bold text-green-700 uppercase mb-2">Option 1: Mobile Money (M-Pesa)</h4>
+                            <form onSubmit={handleMpesaPayment}>
+                                <input
+                                    type="text"
+                                    placeholder="Enter Phone (07...)"
+                                    value={paymentPhone}
+                                    onChange={(e) => setPaymentPhone(e.target.value)}
+                                    className="w-full border p-3 rounded-lg text-sm outline-none focus:border-green-500 mb-3 bg-white"
+                                    required
+                                />
+                                <button
+                                    disabled={loading || isCalculating || totalAmount <= 0}
+                                    className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 shadow-lg shadow-green-100 transition"
+                                >
+                                    {loading ? 'Sending...' : 'Pay with M-Pesa'}
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* DIVIDER */}
+                        <div className="relative flex py-2 items-center mb-6">
+                            <div className="flex-grow border-t border-gray-200"></div>
+                            <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-bold">OR</span>
+                            <div className="flex-grow border-t border-gray-200"></div>
+                        </div>
+
+                        {/* --- OPTION 2: PAYSTACK --- */}
+                        <div>
+                            <h4 className="text-xs font-bold text-blue-700 uppercase mb-2">Option 2: Card / Bank</h4>
+                            <button
+                                onClick={handlePaystackPayment}
+                                disabled={loading || isCalculating || totalAmount <= 0}
+                                className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg"
+                            >
+                                💳 Pay with Paystack
+                            </button>
+                        </div>
+
                     </div>
                 </div>
             )}

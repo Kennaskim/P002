@@ -999,13 +999,15 @@ class PaymentViewSet(viewsets.ModelViewSet):
         
         if 'ResponseCode' in response and response['ResponseCode'] == '0':
             # Success! Safaricom accepted it.
-            payment = Payment.objects.create(
-                user=request.user,
+            payment,created = Payment.objects.update_or_create(
                 delivery=delivery,
-                phone_number=phone,
-                amount=total_amount, # Save the full amount
-                is_successful=False, 
-                transaction_code=response.get('CheckoutRequestID')
+                defaults={
+                    'user':request.user,
+                    'phone_number':phone,
+                    'amount':total_amount, # Save the full amount
+                    'is_successful':False, 
+                    'transaction_code':response.get('CheckoutRequestID')
+                }
             )
             
             # --- SIMULATION AUTO-COMPLETE (Remove in Production) ---
