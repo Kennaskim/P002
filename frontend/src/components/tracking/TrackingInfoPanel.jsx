@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-
+import { useNotification } from '../../context/NotificationContext';
 const TrackingInfoPanel = ({
     status,
     riderPhone,
@@ -12,6 +12,7 @@ const TrackingInfoPanel = ({
     isSwap,
     processing
 }) => {
+    const { notify } = useNotification();
     const [isEditing, setIsEditing] = useState(null); // 'pickup' | 'dropoff' | null
     const [tempLocation, setTempLocation] = useState('');
     const [paymentPhone, setPaymentPhone] = useState('');

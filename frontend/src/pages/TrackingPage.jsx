@@ -5,11 +5,16 @@ import { useAuth } from '../context/AuthContext';
 import TrackingMapPanel from '../components/tracking/TrackingMapPanel';
 import TrackingInfoPanel from '../components/tracking/TrackingInfoPanel';
 import ChatWidget from '../components/ChatWidget';
+import { useNotification } from '../context/NotificationContext';
+import ConfirmModal from '../components/ConfirmModal';
+import Button from '../components/Button';
 
 const TrackingPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { notify } = useNotification();
+    const [showCancelModal, setShowCancelModal] = useState(false);
     const ws = useRef(null);
 
     // State
@@ -138,15 +143,32 @@ const TrackingPage = () => {
         try {
             await updateDelivery(id, { transport_cost: deliveryFee });
             await initiateMpesa({ delivery_id: id, phone_number: phone });
-            alert("STK Push Sent! Check your phone.");
-        } catch (err) { alert("Payment Failed."); }
+            notify("STK Push Sent! Check your phone.", "success");
+        } catch (err) { notify("Payment Failed.", "error"); }
         finally { setProcessing(false); }
     };
 
     const handleCancel = async () => {
         if (!window.confirm("Cancel Order?")) return;
-        await cancelDelivery(id);
-        navigate('/dashboard');
+        try {
+            await cancelDelivery(id);
+            navigate('/dashboard');
+            notify("Order Cancelled!", "success");
+        } catch (err) {
+            notify("Failed to cancel.", "error");
+        }
+    };
+    const handleCancelClick = () => setShowCancelModal(true);
+
+    const handleConfirmCancel = async () => {
+        setShowCancelModal(false);
+        try {
+            await cancelDelivery(id);
+            notify("Order Cancelled.", "info");
+            navigate('/dashboard');
+        } catch (err) {
+            notify("Failed to cancel.", "error");
+        }
     };
 
     // --- 4. PERMISSIONS ---
@@ -178,6 +200,16 @@ const TrackingPage = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-12">
+            {/* --- MODAL --- */}
+            <ConfirmModal
+                isOpen={showCancelModal}
+                title="Cancel Delivery?"
+                message="Are you sure? This action cannot be undone."
+                confirmText="Yes, Cancel Order"
+                isDangerous={true}
+                onConfirm={handleConfirmCancel}
+                onCancel={() => setShowCancelModal(false)}
+            />
             {/* Header */}
             <div className="bg-white border-b sticky top-0 z-20 px-4 py-4 shadow-sm flex justify-between items-center">
                 <div>

@@ -4,12 +4,14 @@ import api, { addToCart, findOrCreateConversation, createReview, getUserReviews,
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useNotification } from '../context/NotificationContext';
 
 const ListingDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
     const { addToCart } = useCart();
+    const { notify } = useNotification();
 
     const [listing, setListing] = useState(null);
     const [reviews, setReviews] = useState([]);
@@ -55,14 +57,14 @@ const ListingDetailPage = () => {
                 rating,
                 comment
             });
-            alert("Review submitted!");
+            notify("Review submitted!");
             setShowReviewForm(false);
             setComment('');
             // Refresh reviews
             const res = await getUserReviews(listing.listed_by.id);
             setReviews(res.data);
         } catch (error) {
-            alert("Failed to submit review.");
+            notify("Failed to submit review.");
         }
     };
 
@@ -75,15 +77,15 @@ const ListingDetailPage = () => {
 
     const handleMessageSeller = async () => {
         if (!user) { navigate('/login'); return; }
-        if (listing.listed_by.id === user.id) { alert("Cannot message self"); return; }
+        if (listing.listed_by.id === user.id) { notify("Cannot message self", "info"); return; }
         try {
             const response = await findOrCreateConversation(listing.listed_by.id, listing.id);
             navigate(`/chat/${response.data.id}`);
-        } catch (error) { alert("Could not start chat"); }
+        } catch (error) { notify("Could not start chat", "error"); }
     };
     const handleOpenSwapModal = async () => {
         if (!user) {
-            alert("Please login to swap.");
+            notify("Please login to swap.", "info");
             return;
         }
         try {
@@ -93,21 +95,21 @@ const ListingDetailPage = () => {
             setMyListings(available);
             setShowSwapModal(true);
         } catch (err) {
-            alert("Failed to load your inventory.");
+            notify("Failed to load your inventory.", "error");
         }
     };
 
     const handleSubmitSwap = async () => {
-        if (!selectedOfferId) return alert("Select a book to offer!");
+        if (!selectedOfferId) return notify("Select a book to offer!", "error");
         try {
             await createSwapRequest({
                 requested_listing_id: listing.id,
                 offered_listing_id: selectedOfferId
             });
-            alert("Swap Request Sent! Wait for the seller to accept.");
+            notify("Swap Request Sent! Wait for the seller to accept.", "success");
             setShowSwapModal(false);
         } catch (err) {
-            alert("Failed to send request. You may have already requested this.");
+            notify("Failed to send request. You may have already requested this.", "error");
         }
     };
 

@@ -3,6 +3,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-
 import { Link } from 'react-router-dom';
 import { getAvailableDeliveries, acceptDeliveryJob, completeDeliveryJob, updateDeliveryLocation, calculateDeliveryFee } from '../utils/api';
 import ChatWidget from '../components/ChatWidget';
+import { useNotification } from '../context/NotificationContext';
+import ConfirmModal from '../components/ConfirmModal';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -32,6 +34,8 @@ const RecenterMap = ({ lat, lng }) => {
 const RiderPage = () => {
     const [isOnline, setIsOnline] = useState(false);
     const [activeJob, setActiveJob] = useState(null);
+    const { notify } = useNotification();
+    const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [jobs, setJobs] = useState([]);
     const [myLocation, setMyLocation] = useState(null);
     const [gpsStatus, setGpsStatus] = useState("Waiting for GPS...");
@@ -118,7 +122,7 @@ const RiderPage = () => {
     };
 
     const startTracking = () => {
-        if (!navigator.geolocation) return alert("GPS Required!");
+        if (!navigator.geolocation) return notify("GPS Required!", "error");
         setGpsStatus("Locating...");
         watchId.current = navigator.geolocation.watchPosition(
             (pos) => {
@@ -147,9 +151,10 @@ const RiderPage = () => {
     const handleAccept = async (id) => {
         try {
             await acceptDeliveryJob(id);
+            notify("✅ Job Accepted!", "success");
             loadJobs();
         } catch (err) {
-            alert(err.response?.data?.error || "Failed to accept job.");
+            notify(err.response?.data?.error || "Failed to accept job.", "error");
             loadJobs();
         }
     };
@@ -159,12 +164,30 @@ const RiderPage = () => {
             await completeDeliveryJob(activeJob.id);
             setActiveJob(null);
             loadJobs();
-            alert("✅ Job Done!");
+            notify("✅ Job Done!", "success");
         }
+    };
+    const handleCompleteClick = () => setShowCompleteModal(true);
+
+    const handleConfirmComplete = async () => {
+        setShowCompleteModal(false);
+        await completeDeliveryJob(activeJob.id);
+        setActiveJob(null);
+        loadJobs();
+        notify("🎉 Delivery Completed! Earnings added.", "success");
     };
 
     return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans flex flex-col">
+            {/* --- MODAL --- */}
+            <ConfirmModal
+                isOpen={showCompleteModal}
+                title="Complete Delivery?"
+                message="Have you handed over the package and received payment?"
+                confirmText="Yes, Complete Job"
+                onConfirm={handleConfirmComplete}
+                onCancel={() => setShowCompleteModal(false)}
+            />
             {/* Header */}
             {!isMapExpanded && (
                 <div className="bg-slate-900 text-white p-6 rounded-b-3xl shadow-xl z-20">
@@ -269,7 +292,7 @@ const RiderPage = () => {
                                 </div>
                             </div>
 
-                            <button onClick={handleComplete} className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-green-700 transition active:scale-95">
+                            <button onClick={handleCompleteClick} className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-green-700 transition active:scale-95">
                                 ✅ Mark Delivered
                             </button>
                         </div>
