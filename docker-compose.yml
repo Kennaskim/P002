@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # This is the Redis service for our Chat
+  # Redis service for Chat
   redis:
     image: redis:7-alpine
     ports:
@@ -9,5 +9,18 @@ services:
     volumes:
       - redis_data:/data
 
+  # NEW: PostgreSQL service
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=textbook_db
+      - POSTGRES_USER=textbook_user
+      - POSTGRES_PASSWORD=textbook_password
+    ports:
+      - "5433:5432"
+
 volumes:
   redis_data:
+  postgres_data:

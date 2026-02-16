@@ -41,7 +41,7 @@ class Textbook(models.Model):
     grade = models.CharField(max_length=50) 
     subject = models.CharField(max_length=100)
     publisher = models.CharField(max_length=100, blank=True)
-    cover_image = models.ImageField(upload_to='book_covers/', blank=True, null=True, default='book_covers/default.jpg') 
+    cover_image = models.ImageField(upload_to='book_covers/', blank=True, null=True, default='book_covers/default.jpg')
 
     def __str__(self):
         return f"{self.title} (Grade {self.grade})" 
@@ -69,7 +69,7 @@ class Listing(models.Model):
     is_active = models.BooleanField(default=True)
     views = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    
     def __str__(self):
         return f"Listing for {self.textbook.title}"
 
