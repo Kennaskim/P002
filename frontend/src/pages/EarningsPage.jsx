@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { getMyEarnings, requestWithdrawal } from '../utils/api';
-// REMOVED: import Layout from '../components/Layout'; <--- Remove this import
 
 const EarningsPage = () => {
     const [data, setData] = useState({ balance: 0, history: [] });
@@ -41,11 +40,9 @@ const EarningsPage = () => {
         }
     };
 
-    // REMOVED: <Layout> wrapper
     if (loading) return <div className="p-10 text-center">Loading Wallet...</div>;
 
     return (
-        // REMOVED: <Layout> opening tag
         <div className="max-w-4xl mx-auto p-6">
             <h1 className="text-2xl font-bold mb-6 text-gray-800">💰 My Wallet</h1>
 
@@ -79,7 +76,6 @@ const EarningsPage = () => {
                 )}
             </div>
         </div>
-        // REMOVED: </Layout> closing tag
     );
 };
 

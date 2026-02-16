@@ -10,7 +10,6 @@ const ParentDashboard = ({ user }) => {
     const [deliveries, setDeliveries] = useState([]);
     const navigate = useNavigate();
 
-    // OPTIMIZATION: Fetch all data in parallel
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -41,7 +40,7 @@ const ParentDashboard = ({ user }) => {
             } else {
                 await rejectSwap(id);
                 alert("Swap Rejected.");
-                const res = await getMySwaps(); // Refresh just swaps
+                const res = await getMySwaps();
                 setSwaps(res.data);
             }
         } catch (err) {
@@ -49,7 +48,6 @@ const ParentDashboard = ({ user }) => {
         }
     };
 
-    // Filters
     const activeSwaps = deliveries.filter(d => !!d.swap);
     const mySales = deliveries.filter(d => !d.swap && d.orders && d.orders.some(o => o.listing.listed_by.id === user.id));
     const myPurchases = deliveries.filter(d => !d.swap && d.orders && d.orders.some(o => o.buyer?.id === user.id));
@@ -58,7 +56,6 @@ const ParentDashboard = ({ user }) => {
 
     return (
         <div>
-            {/* Sales */}
             <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">📦 Outgoing Sales (To Ship)</h3>
                 {mySales.length === 0 ? (
@@ -68,7 +65,6 @@ const ParentDashboard = ({ user }) => {
                 )}
             </div>
 
-            {/* Active Swaps */}
             {activeSwaps.length > 0 && (
                 <div className="mb-8">
                     <h3 className="text-xl font-bold text-gray-800 mb-4">🔄 Active Swaps (Two-Way)</h3>
@@ -76,7 +72,6 @@ const ParentDashboard = ({ user }) => {
                 </div>
             )}
 
-            {/* Incoming Purchases */}
             <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">🛍️ Incoming Orders (To Receive)</h3>
                 {myPurchases.length === 0 ? (
@@ -86,7 +81,6 @@ const ParentDashboard = ({ user }) => {
                 )}
             </div>
 
-            {/* Pending Swaps */}
             <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">⇄ Pending Swap Requests</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -125,7 +119,6 @@ const ParentDashboard = ({ user }) => {
                 </div>
             </div>
 
-            {/* Recent Activity */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded shadow">
                     <h3 className="font-bold text-lg mb-4">My Listings</h3>

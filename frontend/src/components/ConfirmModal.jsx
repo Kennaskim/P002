@@ -4,7 +4,6 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText
     if (!isOpen) return null;
 
     return (
-        // 👇 UPDATED: Changed bg-opacity-50 to bg-black/30 backdrop-blur-sm
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[5000] animate-fade-in transition-all">
 
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm transform transition-all scale-100 animate-scale-in border border-white/20">

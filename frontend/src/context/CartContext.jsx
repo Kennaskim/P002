@@ -11,7 +11,6 @@ export const CartProvider = ({ children }) => {
     const [cart, setCart] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    // Fetch cart whenever the user logs in
     useEffect(() => {
         if (user) {
             fetchCart();

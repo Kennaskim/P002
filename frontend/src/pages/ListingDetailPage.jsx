@@ -18,12 +18,10 @@ const ListingDetailPage = () => {
     const [loading, setLoading] = useState(true);
     const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-    //state for swapping
     const [showSwapModal, setShowSwapModal] = useState(false);
     const [myListings, setMyListings] = useState([]);
     const [selectedOfferId, setSelectedOfferId] = useState(null);
 
-    // Review Form State
     const [rating, setRating] = useState(5);
     const [comment, setComment] = useState('');
     const [showReviewForm, setShowReviewForm] = useState(false);
@@ -31,11 +29,9 @@ const ListingDetailPage = () => {
     useEffect(() => {
         const loadData = async () => {
             try {
-                // 1. Get Listing Details
                 const listingRes = await api.get(`listings/${id}/`);
                 setListing(listingRes.data);
 
-                // 2. Get Seller Reviews
                 const reviewRes = await getUserReviews(listingRes.data.listed_by.id);
                 setReviews(reviewRes.data);
             } catch (error) {
@@ -60,7 +56,6 @@ const ListingDetailPage = () => {
             notify("Review submitted!");
             setShowReviewForm(false);
             setComment('');
-            // Refresh reviews
             const res = await getUserReviews(listing.listed_by.id);
             setReviews(res.data);
         } catch (error) {
@@ -90,7 +85,6 @@ const ListingDetailPage = () => {
         }
         try {
             const res = await getMyListings();
-            // Filter only active books that belong to me
             const available = (res.data.results || res.data).filter(l => l.is_active);
             setMyListings(available);
             setShowSwapModal(true);
@@ -125,7 +119,6 @@ const ListingDetailPage = () => {
             <Link to="/" className="text-gray-500 hover:text-green-600 mb-4 inline-block">← Back</Link>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* --- Left Column: Book Details --- */}
                 <div className="lg:col-span-2">
                     <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
                         <div className="bg-gray-100 p-8 flex justify-center">
@@ -144,7 +137,6 @@ const ListingDetailPage = () => {
                         </div>
                     </div>
 
-                    {/* --- Reviews Section --- */}
                     <div className="bg-white rounded-lg shadow p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-xl font-bold">Seller Reviews ({reviews.length})</h3>
@@ -193,7 +185,6 @@ const ListingDetailPage = () => {
                     </div>
                 </div>
 
-                {/* --- Right Column: Seller Actions --- */}
                 <div className="lg:col-span-1">
                     <div className="bg-white p-6 rounded-lg shadow sticky top-24">
                         <div className="text-3xl font-bold text-green-600 mb-2">
@@ -202,7 +193,6 @@ const ListingDetailPage = () => {
                         <div className="text-gray-600 mb-6">
                             <p>Sold by <span className="font-bold text-gray-900">{listed_by.username}</span></p>
 
-                            {/* Seller Location & Phone */}
                             <div className="flex flex-wrap gap-2 mt-2">
                                 {listed_by.location && (
                                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full border flex items-center gap-1">
@@ -222,21 +212,18 @@ const ListingDetailPage = () => {
                         </div>
 
                         <div className="space-y-3">
-                            {/* Swap Button (If Exchange) */}
                             {listing.listing_type === 'exchange' && user?.id !== listed_by.id && !isSchool && (
                                 <Button onClick={handleOpenSwapModal} className="bg-purple-600 hover:bg-purple-700 text-white w-full mb-2 rounded-2xl">
                                     ⇄ Request Swap
                                 </Button>
                             )}
 
-                            {/* Message Seller */}
                             {user?.id !== listed_by.id && !isSchool && (
                                 <Button onClick={handleMessageSeller} variant="secondary" className="w-full bg-green-600 hover:bg-green-700 rounded-2xl">
                                     Message Seller
                                 </Button>
                             )}
 
-                            {/* Add to Cart (If Sell) */}
                             {user?.id !== listed_by.id && listing.listing_type === 'sell' && !isSchool && (
                                 <Button variant="secondary" onClick={handleAddToCart} disabled={isAddingToCart} className="w-full bg-gray-400 hover:bg-gray-500 rounded-2xl">
                                     {isAddingToCart ? 'Adding...' : 'Add to Cart'}
@@ -247,7 +234,6 @@ const ListingDetailPage = () => {
                 </div>
             </div>
 
-            {/* --- Swap Modal --- */}
             {showSwapModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg w-full max-w-md">

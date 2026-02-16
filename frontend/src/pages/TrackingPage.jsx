@@ -17,17 +17,14 @@ const TrackingPage = () => {
     const [showCancelModal, setShowCancelModal] = useState(false);
     const ws = useRef(null);
 
-    // State
     const [delivery, setDelivery] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Logic State
     const [pickup, setPickup] = useState('');
     const [dropoff, setDropoff] = useState('');
     const [deliveryFee, setDeliveryFee] = useState(0);
     const [booksTotal, setBooksTotal] = useState(0);
 
-    // Map State
     const [geoCoords, setGeoCoords] = useState({ start: null, end: null, rider: null });
     const [routePath, setRoutePath] = useState(null);
     const [eta, setEta] = useState(null);
@@ -36,7 +33,6 @@ const TrackingPage = () => {
     const [processing, setProcessing] = useState(false);
     const hasCalculated = useRef(false);
 
-    // --- 1. DATA LOADING ---
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -44,7 +40,6 @@ const TrackingPage = () => {
                 const data = res.data;
                 setDelivery(data);
 
-                // Initial sync
                 if (!pickup) setPickup(data.pickup_location || '');
                 if (!dropoff) setDropoff(data.dropoff_location || '');
 
@@ -71,9 +66,8 @@ const TrackingPage = () => {
         fetchData();
         const interval = setInterval(fetchData, 8000);
         return () => clearInterval(interval);
-    }, [id, routePath]); // Add routePath as dep to retry if missing
+    }, [id, routePath]);
 
-    // --- 2. WEBSOCKET ---
     useEffect(() => {
         if (!id) return;
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -90,7 +84,6 @@ const TrackingPage = () => {
         return () => { if (ws.current) ws.current.close(); };
     }, [id]);
 
-    // --- 3. LOGIC HANDLERS ---
     const performCalculation = async (start, end, isSwapMode, saveToDb) => {
         try {
             const res = await calculateDeliveryFee(start, end, isSwapMode);
@@ -102,12 +95,10 @@ const TrackingPage = () => {
                 }));
             }
 
-            // 2. Update Route Path
             if (res.data.route_geometry?.coordinates) {
                 setRoutePath(res.data.route_geometry.coordinates.map(c => [c[1], c[0]]));
             }
 
-            // Handle different fee key names from backend
             const cost = res.data.fee || res.data.delivery_fee;
             setDeliveryFee(cost);
 
@@ -124,14 +115,12 @@ const TrackingPage = () => {
 
     const handleUpdateLocation = async (type, newLocation) => {
         try {
-            // 1. Determine new pair
             const start = type === 'pickup' ? newLocation : pickup;
             const end = type === 'dropoff' ? newLocation : dropoff;
 
             if (type === 'pickup') setPickup(newLocation);
             if (type === 'dropoff') setDropoff(newLocation);
 
-            // 2. Recalculate & Save
             await performCalculation(start, end, !!delivery.swap, true);
         } catch (err) {
             console.error(err);
@@ -171,7 +160,6 @@ const TrackingPage = () => {
         }
     };
 
-    // --- 4. PERMISSIONS ---
     const getPermissions = () => {
         if (!delivery || !user) return {};
         const isMe = (u) => u && (u.id === user.id || u === user.id);
@@ -200,7 +188,6 @@ const TrackingPage = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-12">
-            {/* --- MODAL --- */}
             <ConfirmModal
                 isOpen={showCancelModal}
                 title="Cancel Delivery?"
@@ -210,7 +197,6 @@ const TrackingPage = () => {
                 onConfirm={handleConfirmCancel}
                 onCancel={() => setShowCancelModal(false)}
             />
-            {/* Header */}
             <div className="bg-white border-b sticky top-0 z-20 px-4 py-4 shadow-sm flex justify-between items-center">
                 <div>
                     <h1 className="text-xl font-bold text-gray-900">{delivery.swap ? "🔄 Swap Logistics" : "📦 Delivery"}</h1>
@@ -247,7 +233,6 @@ const TrackingPage = () => {
                 </div>
             </div>
 
-            {/* Chat */}
             {delivery.conversation_id && (
                 <ChatWidget
                     conversationId={delivery.conversation_id}

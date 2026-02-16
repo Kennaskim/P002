@@ -40,13 +40,11 @@ const RegisterPage = () => {
         if (result.success) {
             navigate('/login');
         } else {
-            // API might return an object of errors (e.g. {email: ["Invalid email"]})
             setError(result.error);
         }
         setLoading(false);
     };
 
-    // get error message for a specific field
     const getError = (field) => {
         return error && typeof error === 'object' && error[field] ? error[field][0] : null;
     };
@@ -60,7 +58,6 @@ const RegisterPage = () => {
                     </h2>
                 </div>
 
-                {/* Global error message if it's a string */}
                 {error && typeof error === 'string' && (
                     <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
                         {error}

@@ -19,13 +19,11 @@ from .mpesa_utils import trigger_stk_push
 
 User = get_user_model()
 
-#register view
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
-    permission_classes = [permissions.AllowAny] # Anyone can register
+    permission_classes = [permissions.AllowAny]
     serializer_class = RegisterSerializer
 
-#current user view
 class CurrentUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -33,21 +31,16 @@ class CurrentUserView(APIView):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
 
-#textbook viewset
 class TextbookViewSet(viewsets.ModelViewSet):
     queryset = Textbook.objects.all()
     serializer_class = TextbookSerializer
-    # Only logged-in users can add books, but anyone (even guests) can view them
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
-#listing viewset
 class ListingViewSet(viewsets.ModelViewSet):
-    #CRUD for all listings
-    queryset = Listing.objects.filter(is_active=True).order_by('-created_at')
+    queryset = Listing.objects.select_related('listed_by', 'textbook').filter(is_active=True).order_by('-created_at')
     serializer_class = ListingSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
 
-    # --- Search & Filter Configuration ---
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ['textbook__title', 'textbook__subject', 'description']
     filterset_fields = ['listing_type', 'condition']
@@ -55,7 +48,7 @@ class ListingViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.views += 1
-        instance.save()
+        instance.save(update_fields=['views'])
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -69,14 +62,10 @@ class ListingViewSet(viewsets.ModelViewSet):
         if not file: return Response({'error': 'No file'}, status=400)
         
         try:
-            # ... (Your CSV reading logic here) ...
-            
             for row in reader:
                 title = row.get('title')
                 if not title: continue
 
-                # Try to find an existing textbook with this title (case-insensitive)
-                # If found, it uses the existing image!
                 textbook, created = Textbook.objects.get_or_create(
                     title__iexact=title,
                     defaults={
@@ -87,7 +76,6 @@ class ListingViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-                # 2. Create the Listing
                 Listing.objects.create(
                     listed_by=request.user,
                     textbook=textbook,
@@ -102,47 +90,32 @@ class ListingViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=400)
 
-#my listings viewset for dashboard
 class MyListingsView(generics.ListAPIView):
     serializer_class = ListingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Return ALL listings for this user (even inactive/sold ones)
-        return Listing.objects.filter(listed_by=self.request.user).order_by('-created_at')
+        return Listing.objects.select_related('textbook').filter(listed_by=self.request.user).order_by('-created_at')
 
-#bookshop profile viewset
 class BookshopViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Publicly viewable list of bookshops.
-    """
     queryset = BookshopProfile.objects.all().order_by('shop_name')
     serializer_class = BookshopProfileSerializer
     permission_classes = [permissions.AllowAny]
+
     @action(detail=True, methods=['get'])
     def inventory(self, request, pk=None):
-        """
-        Get all listings created by the user associated with this bookshop profile
-        """
         bookshop = self.get_object()
-        # Find listings created by the bookshop owner
-        listings = Listing.objects.filter(listed_by=bookshop.user, is_active=True)
+        listings = Listing.objects.select_related('textbook').filter(listed_by=bookshop.user, is_active=True)
         serializer = ListingSerializer(listings, many=True)
         return Response(serializer.data)
 
-#school profile viewset
 class SchoolViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Publicly viewable list of schools.
-    """
     queryset = SchoolProfile.objects.all().order_by('school_name')
     serializer_class = SchoolProfileSerializer
     permission_classes = [permissions.AllowAny]
+
 class BookListViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Handles operations on specific BookLists 
-    """
-    queryset = BookList.objects.all()
+    queryset = BookList.objects.select_related('school').prefetch_related('textbooks').all()
     serializer_class = BookListSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -152,7 +125,6 @@ class BookListViewSet(viewsets.ReadOnlyModelViewSet):
         results = []
         
         for textbook in book_list.textbooks.all():
-            # Find cheapest active listing for this book
             listing = Listing.objects.filter(textbook=textbook, is_active=True).order_by('price').first()
             
             results.append({
@@ -163,17 +135,14 @@ class BookListViewSet(viewsets.ReadOnlyModelViewSet):
             })
             
         return Response(results)
-#booklist viewset
+
 class SchoolBookListsView(generics.ListAPIView):
-    """
-    Get all book lists for a specific school.
-    """
     serializer_class = BookListSerializer
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         school_id = self.kwargs['school_id']
-        return BookList.objects.filter(school__id=school_id)
+        return BookList.objects.select_related('school').prefetch_related('textbooks').filter(school__id=school_id)
 
     @action(detail=True, methods=['get'])
     def check_availability(self, request, pk=None):
@@ -181,7 +150,6 @@ class SchoolBookListsView(generics.ListAPIView):
         results = []
         
         for textbook in book_list.textbooks.all():
-            # Find cheapest active listing for this book
             listing = Listing.objects.filter(textbook=textbook, is_active=True).order_by('price').first()
             
             results.append({
@@ -193,24 +161,14 @@ class SchoolBookListsView(generics.ListAPIView):
             
         return Response(results)
 
-#conversation viewset
 class ConversationListView(generics.ListAPIView):
-    """
-    List all conversations. 
-    We NO LONGER hide duplicates because each chat is about a different book.
-    """
     serializer_class = ConversationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Simply return all my chats, ordered by latest message
         return self.request.user.conversations.all().order_by('-updated_at')
 
-#message viewset
 class MessageListView(generics.ListAPIView):
-    """
-    List all messages for a specific conversation.
-    """
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -218,7 +176,6 @@ class MessageListView(generics.ListAPIView):
         conversation_id = self.kwargs['conversation_id']
         return Message.objects.filter(conversation__id=conversation_id).order_by('timestamp')
 
-#find or create conversation view        
 class FindOrCreateConversationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -231,7 +188,6 @@ class FindOrCreateConversationView(APIView):
 
         try:
             other_user = User.objects.get(id=user_id)
-            # Listing is optional for finding the chat, but needed if creating new
             listing = Listing.objects.get(id=listing_id) if listing_id else None
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -239,13 +195,10 @@ class FindOrCreateConversationView(APIView):
         if other_user == request.user:
             return Response({"error": "Cannot create conversation with yourself."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # --- FIX: Find ANY existing chat between these two users ---
         conversation = Conversation.objects.filter(participants=request.user)\
             .filter(participants=other_user).first()
 
         if conversation:
-            # If chat exists, just return it (Reuse it)
-            # Optional: Update the 'listing' field to the newest topic if you want
             if listing:
                 conversation.listing = listing
                 conversation.save()
@@ -253,13 +206,11 @@ class FindOrCreateConversationView(APIView):
             serializer = ConversationSerializer(conversation, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            # Only create NEW if none exists
             conversation = Conversation.objects.create(listing=listing)
             conversation.participants.add(request.user, other_user)
             serializer = ConversationSerializer(conversation, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
-#cart view
+
 class CartView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -269,7 +220,6 @@ class CartView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        # Add item to cart
         listing_id = request.data.get('listing_id')
         cart, _ = Cart.objects.get_or_create(user=request.user)
         
@@ -283,12 +233,10 @@ class CartView(APIView):
 
         CartItem.objects.get_or_create(cart=cart, listing=listing)
         
-        # Return updated cart
         serializer = CartSerializer(cart)
         return Response(serializer.data)
 
     def delete(self, request):
-        # Remove item from cart
         item_id = request.data.get('item_id')
         cart = Cart.objects.get(user=request.user)
         CartItem.objects.filter(cart=cart, id=item_id).delete()
@@ -296,15 +244,12 @@ class CartView(APIView):
         serializer = CartSerializer(cart)
         return Response(serializer.data)
 
-#review view
 class ReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):
-        # We automatically set the reviewer (current user) 
-        # and the seller (derived from the listing)
         listing = serializer.validated_data['listing']
         if listing.listed_by == self.request.user:
             raise ValidationError("You cannot review your own listing.")
@@ -314,11 +259,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
             seller=listing.listed_by
         )
 
-#User reviews view
 class UserReviewsView(generics.ListAPIView):
-    """
-    Get all reviews for a specific user (seller)
-    """
     serializer_class = ReviewSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -326,20 +267,17 @@ class UserReviewsView(generics.ListAPIView):
         user_id = self.kwargs['user_id']
         return Review.objects.filter(seller__id=user_id).order_by('-created_at')
 
-#Allowa schools to manage their booklists
 class MyBookListsView(viewsets.ModelViewSet):
     serializer_class = BookListSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated] 
 
     def get_queryset(self):
-        # Only return lists belonging to this school
         if hasattr(self.request.user, 'school_profile'):
-            return BookList.objects.filter(school=self.request.user.school_profile)
+            return BookList.objects.prefetch_related('textbooks').filter(school=self.request.user.school_profile)
         return BookList.objects.none()
 
     def perform_create(self, serializer):
-        # Link new list to the school profile
-        if not hasattr(self.request.user, 'school_profile'):
+        if not hasattr(self.request.user, 'school_profile'): 
              raise ValidationError("You must be a School Account to create book lists.")
         serializer.save(school=self.request.user.school_profile)
 
@@ -419,7 +357,6 @@ class MyBookListsView(viewsets.ModelViewSet):
             print(f"Upload Error: {e}") 
             return Response({'error': f"File Error: {str(e)}"}, status=400)
 
-    # Remove a book from the list
     @action(detail=True, methods=['post'])
     def remove_book(self, request, pk=None):
         book_list = self.get_object()
@@ -432,7 +369,6 @@ class MyBookListsView(viewsets.ModelViewSet):
         except Textbook.DoesNotExist:
             return Response({'error': 'Textbook not found'}, status=404)
 
-#Allows Schools abd bookshops to udate their profiles
 class MyProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -440,7 +376,6 @@ class MyProfileView(APIView):
         user = request.user
         data = UserSerializer(user).data
         
-        # Append specific profile data if it exists
         if user.user_type == 'school' and hasattr(user, 'school_profile'):
             data['profile'] = SchoolProfileSerializer(user.school_profile).data
         elif user.user_type == 'bookshop' and hasattr(user, 'bookshop_profile'):
@@ -451,14 +386,12 @@ class MyProfileView(APIView):
     def patch(self, request):
         user = request.user
         
-        # 1. Update Core User Fields (Phone, Location, etc.)
         user_serializer = UserSerializer(user, data=request.data, partial=True)
         if user_serializer.is_valid():
             user_serializer.save()
         else:
             return Response(user_serializer.errors, status=400)
 
-        # 2. Update Specific Profile Fields (if applicable)
         if user.user_type == 'school':
             profile, _ = SchoolProfile.objects.get_or_create(user=user)
             profile_serializer = SchoolProfileSerializer(profile, data=request.data, partial=True)
@@ -471,16 +404,13 @@ class MyProfileView(APIView):
             if profile_serializer.is_valid():
                 profile_serializer.save()
 
-        # Return the fresh, updated user data
         return Response(UserSerializer(user).data)
 
-# Swapping viewset
 class SwapRequestViewSet(viewsets.ModelViewSet):
     serializer_class = SwapRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Users can see swaps they sent OR received
         return SwapRequest.objects.filter(
             Q(sender=self.request.user) | Q(receiver=self.request.user)
         ).order_by('-created_at')
@@ -489,32 +419,25 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
         req_id = request.data.get('requested_listing_id')
         off_id = request.data.get('offered_listing_id')
 
-        # 1. Check if a swap entry already exists for these two books
         existing_swap = SwapRequest.objects.filter(
             requested_listing_id=req_id,
             offered_listing_id=off_id
         ).first()
 
-        # 2. If it exists...
         if existing_swap:
-            # If the old one is (cancelled or rejected), delete it so we can try again
             if existing_swap.status in ['cancelled', 'rejected']:
                 existing_swap.delete()
-            # If it's still (pending or accepted), block the new request
             else:
                 return Response(
                     {'error': 'An active swap request already exists for these books.'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-        # 3. Proceed with normal creation
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        # Automatically set sender and receiver
         requested_listing = serializer.validated_data['requested_listing']
         
-        # Validation: You can't swap with yourself
         if requested_listing.listed_by == self.request.user:
             raise ValidationError("You cannot swap with yourself.")
             
@@ -523,7 +446,6 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
             receiver=requested_listing.listed_by
         )
 
-    # Action to ACCEPT a swap
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
         swap = self.get_object()
@@ -534,7 +456,6 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
         swap.status = 'accepted'
         swap.save()
         
-        # 1. AUTO-CLOSE listings
         if swap.requested_listing:
             swap.requested_listing.is_active = False
             swap.requested_listing.save()
@@ -550,7 +471,6 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
             status='pending'
         )
         
-        # 2. AUTO-CHAT: Find ANY conversation between Sender and Receiver
         conversation = Conversation.objects.filter(participants=swap.sender)\
             .filter(participants=swap.receiver).first()
 
@@ -558,7 +478,6 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
             conversation = Conversation.objects.create(listing=swap.requested_listing)
             conversation.participants.add(swap.sender, swap.receiver)
         else:
-            # Update context to this swap
             conversation.listing = swap.requested_listing
             conversation.save()
        
@@ -570,7 +489,6 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
         
         return Response({'status': 'Swap Accepted', 'conversation_id': conversation.id})
 
-    # Action to REJECT a swap
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
         swap = self.get_object()
@@ -587,11 +505,9 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
             swap.offered_listing.is_active = True
             swap.offered_listing.save()
 
-        # Notification
         sender = swap.sender
         receiver = request.user 
         
-        # Find ANY conversation
         conversation = Conversation.objects.filter(participants=sender)\
             .filter(participants=receiver).first()
             
@@ -606,7 +522,6 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
         )
         return Response({'status': 'Swap Rejected'})
 
-# Delivery viewset
 class DeliveryViewSet(viewsets.ModelViewSet):
     queryset = Delivery.objects.all()
     serializer_class = DeliverySerializer
@@ -630,7 +545,6 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             Q(swap__receiver=user)
         ).order_by('-created_at').distinct().order_by('-created_at')
 
-    # Calculate Delivery Fee
     @action(detail=False, methods=['post'])
     def calculate_delivery_fee(self, request):
         delivery_id = request.data.get('delivery_id')
@@ -642,13 +556,11 @@ class DeliveryViewSet(viewsets.ModelViewSet):
                 dropoff = delivery.dropoff_location
                 is_swap = delivery.swap is not None
 
-                # Calculate
                 cost, distance, pickup_coords, dropoff_coords, route_geometry, error = get_delivery_cost(pickup, dropoff, is_swap)
 
                 if error:
                     return Response({'error': error}, status=400)
 
-                # SAVE the new cost to the database
                 delivery.transport_cost = cost
                 delivery.save()
 
@@ -685,7 +597,7 @@ class DeliveryViewSet(viewsets.ModelViewSet):
                 'route_geometry': route_geometry,
                 'message': f"Distance: {distance}. Cost: KSh {cost}"
             })
-    # Rider Accepts a Job
+
     @action(detail=True, methods=['post'])
     def accept_job(self, request, pk=None):
         delivery = self.get_object()
@@ -695,10 +607,9 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         if active_job:
             return Response({'error': '⛔ You have an unfinished delivery! Complete it first.'}, status=400)
         
-        # 2. Validation: Prevent taking a taken job
         if delivery.status != 'paid':
             return Response({'error': 'Job is no longer available.'}, status=400)
-        # Change status to 'shipped' (In Transit)
+
         delivery.status = 'shipped'
         delivery.rider = user
         delivery.rider_phone = user.phone_number
@@ -709,26 +620,19 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             defaults={'listing': None} 
         )
 
-        # List of people to add
-        participants_to_add = [user] # Always add the Rider
+        participants_to_add = [user]
 
         if delivery.orders.exists():
-            # SCENARIO A: Normal Order
-            # Add Buyer AND Seller
             order = delivery.orders.first()
             participants_to_add.append(order.buyer)
             participants_to_add.append(order.listing.listed_by)
             
         elif delivery.swap:
-            # SCENARIO B: Swap Request
-            # Add Swap Sender AND Swap Receiver
             participants_to_add.append(delivery.swap.sender)
             participants_to_add.append(delivery.swap.receiver)
 
-        # Add everyone to the chat at once
         conversation.participants.add(*participants_to_add)
 
-        # Send System Message
         if created:
              Message.objects.create(
                 conversation=conversation,
@@ -742,8 +646,6 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             'delivery': DeliverySerializer(delivery).data
         })
 
-    
-    #update riders location
     @action(detail=True, methods=['post'])
     def update_location(self, request, pk=None):
         delivery = self.get_object()  
@@ -758,7 +660,6 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             return Response({'status': 'Location Updated'})
         return Response({'error': 'Invalid Coordinates'}, status=400)
 
-    # Rider Completes a Job
     @action(detail=True, methods=['post'])
     def complete_job(self, request, pk=None):
         delivery = self.get_object()
@@ -767,28 +668,22 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         if delivery.status == 'delivered':
             return Response({'error': 'Job already completed'}, status=400)
 
-        # --- FIX 1: Self-Healing Logic (Assign Rider if missing) ---
         if not delivery.rider and user.user_type == 'rider':
             delivery.rider = user
             delivery.save()
             print(f"⚠️ Fixed missing rider. Assigned to {user.username}")
 
-        # 1. Update Status
         delivery.status = 'delivered'
         delivery.save()
 
-        # 2. DISTRIBUTE EARNINGS
         with transaction.atomic():
-            # A. Pay the Rider
             if delivery.rider:
                 rider_wallet, _ = Wallet.objects.get_or_create(user=delivery.rider)
                 
-                # Ensure transport cost is not 0
                 amount_to_pay = delivery.transport_cost
                 if amount_to_pay <= 0:
                     amount_to_pay = Decimal('200.00') 
                 
-                # --- FIX 2: Convert Balance to Decimal before adding ---
                 current_balance = Decimal(str(rider_wallet.balance))
                 rider_wallet.balance = current_balance + amount_to_pay
                 rider_wallet.save()
@@ -801,12 +696,10 @@ class DeliveryViewSet(viewsets.ModelViewSet):
                 )
                 print(f"DEBUG: Rider Paid {amount_to_pay}. New Balance: {rider_wallet.balance}")
             
-            # B. Pay the Sellers
             for order in delivery.orders.all():
                 seller = order.listing.listed_by
                 seller_wallet, _ = Wallet.objects.get_or_create(user=seller)
                 
-                # --- FIX 3: Convert Balance to Decimal before adding ---
                 current_seller_balance = Decimal(str(seller_wallet.balance))
                 seller_wallet.balance = current_seller_balance + order.amount_paid
                 seller_wallet.save()
@@ -820,7 +713,7 @@ class DeliveryViewSet(viewsets.ModelViewSet):
                 print(f"DEBUG: Seller Paid {order.amount_paid}. New Balance: {seller_wallet.balance}")
 
         return Response({'status': 'Job Completed & Wallets Credited'})
-    # User cancel a order
+
     @action(detail=True, methods=['post'])
     def cancel_order(self, request, pk=None):
         delivery = self.get_object()
@@ -832,14 +725,11 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         delivery.status = 'cancelled'
         delivery.save()
         
-        # Scenario A: Multiple Orders (purchase)
         if delivery.orders.exists():
-            # Loop through ALL orders in this delivery and restock them
             for order in delivery.orders.all():
-                order.listing.is_active = True # Restock
+                order.listing.is_active = True
                 order.listing.save()
             
-            # Notify Seller (Using first Order to find seller)
             first_order = delivery.orders.first()
             seller = first_order.listing.listed_by
             
@@ -854,7 +744,6 @@ class DeliveryViewSet(viewsets.ModelViewSet):
                     content=f"🚫 SYSTEM: I have cancelled the delivery for {delivery.orders.count()} books. They have been returned to your inventory."
                 )
 
-        # --- SCENARIO B: SWAP (Logic remains the same) ---
         elif delivery.swap:
             swap = delivery.swap
             swap.status = 'cancelled'
@@ -883,7 +772,6 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         return Response({'status': 'Delivery Cancelled and Items Restocked'})
     
 
-# Order viewset
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
@@ -894,12 +782,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         if not listing_ids:
             return Response({'error': 'No books selected'}, status=400)
 
-        # 1. Validation
         listings = Listing.objects.filter(id__in=listing_ids, is_active=True)
         if len(listings) != len(listing_ids):
              return Response({'error': 'One or more books have already been sold. Please clear your cart and try again.'}, status=400)
 
-        # 2. Group by Seller
         seller_groups = {}
         for listing in listings:
             seller_id = listing.listed_by.id
@@ -909,13 +795,11 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         created_count = 0
 
-        # 3. Process Orders Atomically
         try:
             with transaction.atomic():
                 for seller_id, group_listings in seller_groups.items():
                     seller = group_listings[0].listed_by
                     
-                    # Create Delivery Container
                     delivery = Delivery.objects.create(
                         pickup_location=seller.location,
                         dropoff_location=request.user.location,
@@ -925,28 +809,22 @@ class OrderViewSet(viewsets.ModelViewSet):
 
                     book_titles = []
                     for listing in group_listings:
-                        # A. Create Order
                         order = Order.objects.create(
                             buyer=request.user,
                             listing=listing,
                             amount_paid=listing.price
                         )
-                        # B. Mark as Sold
                         listing.is_active = False 
                         listing.save()
                         
-                        # C. Link to Delivery
                         delivery.orders.add(order)
                         book_titles.append(listing.textbook.title)
                         created_count += 1
                         
-                        # D. Remove from Cart
                         CartItem.objects.filter(cart__user=request.user, listing=listing).delete()
 
-                    # --- FIX: SEND MESSAGE TO EXISTING CHAT ---
                     titles_str = ", ".join(book_titles)
                     
-                    # Find existing conversation regardless of which book it was about
                     conversation = Conversation.objects.filter(participants=request.user)\
                         .filter(participants=seller).first()
                     
@@ -954,7 +832,6 @@ class OrderViewSet(viewsets.ModelViewSet):
                         conversation = Conversation.objects.create(listing=group_listings[0])
                         conversation.participants.add(request.user, seller)
                     else:
-                        # Update the conversation topic to the new book
                         conversation.listing = group_listings[0]
                         conversation.save()
                     
@@ -970,7 +847,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response({'status': 'Orders Placed', 'count': created_count}, status=status.HTTP_201_CREATED)
 
 
-# Payment viewset
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
@@ -978,7 +854,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def initiate_mpesa(self, request):
-        """ Real M-Pesa STK Push Integration """
         delivery_id = request.data.get('delivery_id')
         phone = request.data.get('phone_number')
 
@@ -987,36 +862,29 @@ class PaymentViewSet(viewsets.ModelViewSet):
         except Delivery.DoesNotExist:
             return Response({'error': 'Delivery not found'}, status=404)
 
-        
         books_total = sum(order.amount_paid for order in delivery.orders.all())
         
-        # 2. Add Transport Cost
         total_amount = books_total + delivery.transport_cost
-        # -----------------------------------------------
 
-        # 3. Trigger STK Push with TOTAL AMOUNT
         response = trigger_stk_push(phone, total_amount, delivery.id)
         
         if 'ResponseCode' in response and response['ResponseCode'] == '0':
-            # Success! Safaricom accepted it.
             payment,created = Payment.objects.update_or_create(
                 delivery=delivery,
                 defaults={
                     'user':request.user,
                     'phone_number':phone,
-                    'amount':total_amount, # Save the full amount
+                    'amount':total_amount,
                     'is_successful':False, 
                     'transaction_code':response.get('CheckoutRequestID')
                 }
             )
             
-            # --- SIMULATION AUTO-COMPLETE (Remove in Production) ---
             payment.is_successful = True
             payment.save()
             delivery.status = 'paid'
             delivery.tracking_code = f"TRK-{random.randint(1000, 9999)}"
             delivery.save()
-            # -----------------------------------------------------
 
             return Response({
                 'status': 'STK Push Sent. Check your phone.',
@@ -1028,14 +896,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
             error_message = response.get('errorMessage', 'M-Pesa Connection Failed')
             return Response({'error': error_message, 'details': response}, status=400)
 
-    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny]) # AllowAny is crucial so Safaricom can access it
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
     def callback(self, request):
-        """
-        Receives the payment confirmation from Safaricom (M-Pesa).
-        """
         data = request.data
         
-        # 1. Extract the Result Code (0 = Success, others = Fail)
         body = data.get('Body', {}).get('stkCallback', {})
         result_code = body.get('ResultCode')
         checkout_id = body.get('CheckoutRequestID')
@@ -1044,48 +908,40 @@ class PaymentViewSet(viewsets.ModelViewSet):
             return Response({'status': 'Invalid Data'}, status=400)
 
         try:
-            # Find the pending payment
             payment = Payment.objects.get(transaction_code=checkout_id)
             delivery = payment.delivery
             
             if result_code == 0:
-                # --- PAYMENT SUCCESSFUL ---
                 payment.is_successful = True
                 payment.save()
                 
                 delivery.status = 'paid'
-                # Generate real tracking code now if you like
                 delivery.tracking_code = f"TRK-{random.randint(1000, 9999)}"
                 delivery.save()
                 
-                print(f"✅ Payment Confirmed for Order {delivery.id}")
+                print(f"Payment Confirmed for Order {delivery.id}")
             else:
-                # --- PAYMENT CANCELLED/FAILED ---
-                print(f"❌ Payment Failed for Order {delivery.id}: {body.get('ResultDesc')}")
-                # You could optionally cancel the delivery here or leave it pending
+                print(f"Payment Failed for Order {delivery.id}: {body.get('ResultDesc')}")
         
         except Payment.DoesNotExist:
             print("Payment record not found for this callback")
 
-        # Always return 200 OK to Safaricom so they stop sending the message
         return Response({'status': 'Callback Received'})
 
     @action(detail=False, methods=['post'])
     def initiate_paystack(self, request):
         
         delivery_id = request.data.get('delivery_id')
-        email = request.user.email  # Paystack requires an email
+        email = request.user.email
 
         try:
             delivery = Delivery.objects.get(id=delivery_id)
         except Delivery.DoesNotExist:
             return Response({'error': 'Delivery not found'}, status=404)
 
-        # Calculate Total
         books_total = sum(order.amount_paid for order in delivery.orders.all())
         total_amount = books_total + delivery.transport_cost
         
-        # Paystack expects amount in kobo/cents (Multiply by 100)
         amount_in_kobo = int(total_amount * 100)
 
         url = "https://api.paystack.co/transaction/initialize"
@@ -1097,7 +953,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
             "email": email,
             "amount": amount_in_kobo,
             "currency": "KES",
-            "callback_url": "http://localhost:5173/payment/verify", # Frontend URL to return to
+            "callback_url": "http://localhost:5173/payment/verify",
             "metadata": {
                 "delivery_id": delivery.id,
                 "user_id": request.user.id
@@ -1108,7 +964,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
         res_data = response.json()
 
         if res_data['status']:
-            # Save the reference pending payment
             Payment.objects.update_or_create(
                delivery=delivery,
                 defaults={
@@ -1117,7 +972,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     'payment_method': 'card',
                     'paystack_ref': res_data['data']['reference'],
                     'is_successful': False,
-                    # Optional: Clear old M-Pesa code if switching to card
                     'transaction_code': None 
                 }
             )
@@ -1127,10 +981,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def verify_paystack(self, request):
-        """
-        Called by Frontend after returning from Paystack.
-        We confirm with Paystack server-to-server that money was actually deducted.
-        """
         reference = request.data.get('reference')
         
         url = f"https://api.paystack.co/transaction/verify/{reference}"
@@ -1140,13 +990,11 @@ class PaymentViewSet(viewsets.ModelViewSet):
         res_data = response.json()
 
         if res_data['status'] and res_data['data']['status'] == 'success':
-            # Payment Valid! Update DB
             try:
                 payment = Payment.objects.get(paystack_ref=reference)
                 payment.is_successful = True
                 payment.save()
 
-                # Update Delivery Status
                 delivery = payment.delivery
                 delivery.status = 'paid'
                 delivery.tracking_code = f"TRK-{random.randint(1000, 9999)}"
@@ -1163,7 +1011,6 @@ class MyEarningsView(APIView):
 
     def get(self, request):
         wallet, _ = Wallet.objects.get_or_create(user=request.user)
-        # Get last 20 transactions
         transactions = WalletTransaction.objects.filter(wallet=wallet).order_by('-timestamp')[:20]
         
         return Response({
@@ -1171,7 +1018,6 @@ class MyEarningsView(APIView):
             'history': WalletTransactionSerializer(transactions, many=True).data
         })
 
-# 2. The Withdrawal View (This was missing!)
 class WithdrawalView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1184,11 +1030,9 @@ class WithdrawalView(APIView):
         if wallet.balance < amount:
             return Response({'error': 'Insufficient funds'}, status=400)
 
-        # 1. Deduct from Virtual Wallet
         wallet.balance -= amount
         wallet.save()
 
-        # 2. Log Transaction
         WalletTransaction.objects.create(
             wallet=wallet,
             amount=amount,

@@ -29,7 +29,6 @@ const ChatPage = () => {
     const wsRef = useRef(null);
     const messageListRef = useRef(null);
 
-    // 1. Load Conversations
     useEffect(() => {
         getConversations()
             .then(res => {
@@ -39,7 +38,6 @@ const ChatPage = () => {
             .catch(() => setLoading(false));
     }, []);
 
-    // 2. Handle URL ID
     useEffect(() => {
         if (conversationId && conversations.length > 0) {
             const targetChat = conversations.find(c => c.id === parseInt(conversationId));
@@ -47,7 +45,6 @@ const ChatPage = () => {
         }
     }, [conversationId, conversations]);
 
-    // 3. Connect WebSocket
     useEffect(() => {
         if (!activeChat) return;
 
@@ -65,7 +62,6 @@ const ChatPage = () => {
         return () => ws.close();
     }, [activeChat]);
 
-    // 4. Auto-Scroll
     useEffect(() => {
         if (messageListRef.current) {
             const { scrollHeight, clientHeight } = messageListRef.current;
@@ -84,7 +80,6 @@ const ChatPage = () => {
         <div className="container mx-auto px-4 py-8 h-[calc(100vh-64px)]">
             <div className="flex h-full bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
 
-                {/* --- SIDEBAR --- */}
                 <div className={`w-full md:w-1/3 border-r bg-gray-50 flex flex-col ${activeChat ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 bg-white border-b shadow-sm z-10">
                         <h2 className="font-bold text-xl text-gray-800">Messages</h2>
@@ -112,7 +107,6 @@ const ChatPage = () => {
                     </div>
                 </div>
 
-                {/* --- CHAT AREA --- */}
                 <div className={`w-full md:w-2/3 flex flex-col ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
                     {activeChat ? (
                         <>

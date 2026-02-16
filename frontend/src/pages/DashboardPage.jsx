@@ -11,7 +11,6 @@ const DashboardPage = () => {
 
     if (!user) return <div className="text-center py-10">Loading Dashboard...</div>;
 
-    // Direct Return for Riders
     if (user.user_type === 'rider') {
         return <RiderDashboard user={user} logout={logout} />;
     }

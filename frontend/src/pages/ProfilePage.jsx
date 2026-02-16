@@ -3,14 +3,13 @@ import { useAuth } from '../context/AuthContext';
 import { getFullProfile, updateMyProfile } from '../utils/api';
 
 const ProfilePage = () => {
-    const { user: authUser } = useAuth(); // Get user from context
+    const { user: authUser } = useAuth();
     const [formData, setFormData] = useState({
         username: '',
         email: '',
         phone_number: '',
         location: '',
         national_id: '',
-        // School/Shop specific fields
         school_name: '',
         shop_name: '',
         address: '',
@@ -28,15 +27,12 @@ const ProfilePage = () => {
             const res = await getFullProfile();
             const data = res.data;
 
-            // Flatten the data for the form
             setFormData({
                 username: data.username || '',
                 email: data.email || '',
                 phone_number: data.phone_number || '',
                 location: data.location || '',
                 national_id: data.national_id || '',
-
-                // If they have a sub-profile, load that too
                 school_name: data.profile?.school_name || '',
                 shop_name: data.profile?.shop_name || '',
                 address: data.profile?.address || '',
@@ -77,7 +73,6 @@ const ProfilePage = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Read-Only Fields */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-500 mb-1">Username</label>
@@ -89,7 +84,6 @@ const ProfilePage = () => {
                         </div>
                     </div>
 
-                    {/* Editable Contact Info */}
                     <div>
                         <label className="block text-sm font-bold mb-1">Phone Number (M-Pesa)</label>
                         <input
@@ -123,7 +117,6 @@ const ProfilePage = () => {
                         />
                     </div>
 
-                    {/* SCHOOL SPECIFIC FIELDS */}
                     {authUser?.user_type === 'school' && (
                         <div className="bg-blue-50 p-4 rounded border border-blue-200">
                             <h3 className="font-bold text-blue-800 mb-2">School Details</h3>
@@ -134,7 +127,6 @@ const ProfilePage = () => {
                         </div>
                     )}
 
-                    {/* BOOKSHOP SPECIFIC FIELDS */}
                     {authUser?.user_type === 'bookshop' && (
                         <div className="bg-purple-50 p-4 rounded border border-purple-200">
                             <h3 className="font-bold text-purple-800 mb-2">Shop Details</h3>

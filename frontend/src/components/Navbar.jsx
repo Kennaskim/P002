@@ -11,7 +11,6 @@ const Navbar = () => {
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    // Message State
     const [unreadMessages, setUnreadMessages] = useState(0);
 
     const handleLogout = () => {
@@ -19,7 +18,6 @@ const Navbar = () => {
         navigate('/login');
     };
 
-    // --- POLL FOR MESSAGES ---
     useEffect(() => {
         if (!user) return;
 
@@ -37,9 +35,7 @@ const Navbar = () => {
         return () => clearInterval(interval);
     }, [user]);
 
-    // --- NAVIGATION LINKS BASED ON ROLE ---
     const getLinks = () => {
-        // 1. GUEST (Not Logged In)
         if (!user) return [
             { name: 'Home', path: '/' },
             { name: 'Schools', path: '/schools' },
@@ -47,7 +43,6 @@ const Navbar = () => {
             { name: 'Register', path: '/register' },
         ];
 
-        // 2. LOGGED IN USERS
         switch (user.user_type) {
             case 'rider':
                 return [
@@ -69,7 +64,7 @@ const Navbar = () => {
                     { name: 'Inventory', path: '/listings/create' },
                     { name: 'Orders', path: '/orders' },
                 ];
-            default: // PARENT / STANDARD USER
+            default:
                 return [
                     { name: 'Home', path: '/' },
                     { name: 'Schools', path: '/schools' },
@@ -95,19 +90,16 @@ const Navbar = () => {
         <nav className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
             <div className="container mx-auto px-4">
                 <div className="flex justify-between items-center h-16">
-                    {/* Logo: Added flex-shrink-0 to prevent squashing */}
                     <Link to="/" className="text-xl font-extrabold text-green-700 flex items-center gap-2 flex-shrink-0">
                         📚 TextbookExchange
                     </Link>
 
-                    {/* Search Bar: Made flexible with min-w-0 and responsive margins */}
                     {showSearch && (
                         <div className="hidden md:block flex-1 mx-4 lg:mx-8 max-w-2xl min-w-0 transition-all duration-300">
                             <SearchBar />
                         </div>
                     )}
 
-                    {/* Desktop Menu: Added flex-shrink-0 */}
                     <div className="hidden md:flex items-center gap-6 flex-shrink-0">
                         {getLinks().map(link => (
                             <Link
@@ -116,7 +108,6 @@ const Navbar = () => {
                                 className="text-sm font-medium text-gray-600 hover:text-green-600 transition relative group whitespace-nowrap"
                             >
                                 {link.name}
-                                {/* Badge Logic */}
                                 {link.badge && (
                                     <span className={`absolute -top-3 -right-3 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm ${link.name === 'Messages' ? 'text-lg leading-3 px-1' : ''}`}>
                                         {link.badge}
@@ -134,7 +125,6 @@ const Navbar = () => {
                         )}
                     </div>
 
-                    {/* Mobile Hamburger */}
                     <button
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
                         className="md:hidden p-2 text-gray-600 rounded-md hover:bg-gray-100 relative"
@@ -146,7 +136,6 @@ const Navbar = () => {
                     </button>
                 </div>
 
-                {/* Mobile Menu Dropdown */}
                 {isMenuOpen && (
                     <div className="md:hidden py-4 border-t border-gray-100 bg-gray-50 px-4 space-y-2">
                         {showSearch && (

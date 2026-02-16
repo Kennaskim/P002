@@ -4,11 +4,10 @@ import api, { getBookshops } from '../utils/api';
 const BookshopsPage = () => {
     const [bookshops, setBookshops] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [inventories, setInventories] = useState({}); // Stores lists of books
+    const [inventories, setInventories] = useState({});
     const [expandedShop, setExpandedShop] = useState(null);
 
     useEffect(() => {
-        // Load the list of shops
         getBookshops()
             .then(res => {
                 const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
@@ -20,13 +19,12 @@ const BookshopsPage = () => {
 
     const handleToggleInventory = async (shopId) => {
         if (expandedShop === shopId) {
-            setExpandedShop(null); // Close if already open
+            setExpandedShop(null);
             return;
         }
 
-        setExpandedShop(shopId); // Open this shop
+        setExpandedShop(shopId);
 
-        // Only fetch from API if we haven't loaded this shop's books yet
         if (!inventories[shopId]) {
             try {
                 const res = await api.get(`bookshops/${shopId}/inventory/`);
@@ -34,7 +32,6 @@ const BookshopsPage = () => {
                 setInventories(prev => ({ ...prev, [shopId]: books }));
             } catch (err) {
                 console.error("Failed to load inventory");
-                // Save an empty list so it doesn't crash or keep trying
                 setInventories(prev => ({ ...prev, [shopId]: [] }));
             }
         }
@@ -67,12 +64,10 @@ const BookshopsPage = () => {
                                 </button>
                             </div>
 
-                            {/* Inventory Dropdown - ONLY SHOW IF EXPANDED */}
                             {expandedShop === shop.id && (
                                 <div className="mt-6 border-t pt-4">
                                     <h3 className="font-bold text-lg mb-3">Available Books</h3>
 
-                                    {/* SAFE CHECK: Does the inventory array exist? */}
                                     {inventories[shop.id] ? (
                                         inventories[shop.id].length > 0 ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

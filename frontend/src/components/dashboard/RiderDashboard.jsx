@@ -17,7 +17,6 @@ const RiderDashboard = ({ user, logout }) => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {/* Profile Card */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h3 className="font-bold text-lg mb-4 text-gray-800">My Profile</h3>
                     <div className="space-y-2 text-sm">
@@ -35,7 +34,6 @@ const RiderDashboard = ({ user, logout }) => {
                     </div>
                 </div>
 
-                {/* Work Mode Card */}
                 <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col justify-between relative overflow-hidden group">
                     <div className="relative z-10">
                         <h2 className="text-2xl font-bold mb-2">Start Working</h2>

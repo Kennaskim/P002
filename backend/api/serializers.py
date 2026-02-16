@@ -85,7 +85,6 @@ class MessageSerializer(serializers.ModelSerializer):
         fields = ['id', 'sender', 'content', 'timestamp', 'is_read']
 
 class OrderSerializer(serializers.ModelSerializer):
-    #delivery = DeliverySerializer(read_only=True)
     listing = ListingSerializer(read_only=True)
     buyer = UserSerializer(read_only=True)
     seller = UserSerializer(read_only=True)
@@ -101,7 +100,6 @@ class SwapRequestSerializer(serializers.ModelSerializer):
     offered_listing = ListingSerializer(read_only=True)
     delivery_id = serializers.SerializerMethodField()
 
-    # For creating the request, we only send IDs
     requested_listing_id = serializers.PrimaryKeyRelatedField(
         queryset=Listing.objects.all(), source='requested_listing', write_only=True
     )
@@ -120,7 +118,6 @@ class SwapRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'sender', 'receiver', 'status', 'created_at']
 
     def get_delivery_id(self, obj):
-        # Check if the swap has a related delivery
         if hasattr(obj, 'delivery'):
             return obj.delivery.id
         return None
@@ -128,7 +125,6 @@ class SwapRequestSerializer(serializers.ModelSerializer):
 
 
 class DeliverySerializer(serializers.ModelSerializer):
-    # We are adding a custom field that doesn't exist in the Delivery model
     seller_name = serializers.SerializerMethodField()
     seller_phone = serializers.SerializerMethodField()
     seller_location = serializers.SerializerMethodField()
@@ -218,7 +214,6 @@ class DeliverySerializer(serializers.ModelSerializer):
         return obj.pickup_location
 
     def get_conversation_id(self, obj):
-        # Return the ID of the conversation linked to this delivery
         conv = obj.conversations.first()
         return conv.id if conv else None
 
@@ -231,7 +226,6 @@ class ConversationSerializer(serializers.ModelSerializer):
         fields = ['id', 'other_user', 'last_message', 'updated_at', 'listing']
 
     def get_other_user(self, obj):
-        # Find the participant who is NOT the request user
         request = self.context.get('request')
         if request and request.user:
             other = obj.participants.exclude(id=request.user.id).first()
@@ -244,7 +238,7 @@ class ConversationSerializer(serializers.ModelSerializer):
         return last_msg.content if last_msg else ""
 
 class CartItemSerializer(serializers.ModelSerializer):
-    listing = ListingSerializer(read_only=True) # Show full listing details
+    listing = ListingSerializer(read_only=True)
     class Meta:
         model = CartItem
         fields = ['id', 'listing', 'added_at']
@@ -257,11 +251,10 @@ class CartSerializer(serializers.ModelSerializer):
         fields = ['id', 'items', 'total']
 
     def get_total(self, obj):
-        # Calculate total price of all items in cart
         return sum(item.listing.price for item in obj.items.all())
 
 class ReviewSerializer(serializers.ModelSerializer):
-    reviewer = UserSerializer(read_only=True) # Show who wrote the review
+    reviewer = UserSerializer(read_only=True)
     class Meta:
         model = Review
         fields = ['id', 'listing', 'reviewer', 'seller', 'rating', 'comment', 'created_at']
@@ -290,7 +283,3 @@ class WalletSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
         fields = ['balance', 'last_updated', 'transactions']
-
-
-
-

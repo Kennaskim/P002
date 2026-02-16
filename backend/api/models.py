@@ -2,7 +2,6 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.db.models import Avg
 
-#User Model
 class User(AbstractUser):
     USER_TYPE_CHOICES= (
         ('parent', 'Parent/Guardian'),
@@ -11,7 +10,6 @@ class User(AbstractUser):
         ('rider', 'Rider'),
     )
 
-#email as the unique identifier
     email = models.EmailField(unique=True)
     user_type = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default='parent')
     location = models.CharField(max_length=100)
@@ -19,7 +17,7 @@ class User(AbstractUser):
     review_count = models.IntegerField(default=0)
     national_id = models.CharField(max_length=15, unique=True, blank=True, null=True) 
     phone_number = models.CharField(max_length=15, blank=True, null=True)
-#use email for login
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
     
@@ -33,7 +31,6 @@ class User(AbstractUser):
         self.review_count = 0
       self.save() 
 
-#textbook model
 class Textbook(models.Model):
     title = models.CharField(max_length=200)
     author = models.CharField(max_length=200, blank=True)
@@ -46,7 +43,6 @@ class Textbook(models.Model):
     def __str__(self):
         return f"{self.title} (Grade {self.grade})" 
 
-# listing model
 class Listing(models.Model):
     LISTING_TYPE_CHOICES = (
         ('sell', 'For Sale'),
@@ -57,11 +53,9 @@ class Listing(models.Model):
         ('good', 'Good'),
         ('fair', 'Fair'),
     )
-    #who listed the textbook
+
     listed_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='listings')
-    #what book is this?
     textbook = models.ForeignKey(Textbook, on_delete=models.CASCADE, related_name='listings')
-    #details
     listing_type = models.CharField(max_length=10, choices=LISTING_TYPE_CHOICES)
     condition = models.CharField(max_length=10, choices=CONDITION_CHOICES)
     price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Required if for sale")
@@ -73,7 +67,6 @@ class Listing(models.Model):
     def __str__(self):
         return f"Listing for {self.textbook.title}"
 
-#Bookshop model
 class BookshopProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bookshop_profile')
     shop_name = models.CharField(max_length=255)
@@ -84,7 +77,6 @@ class BookshopProfile(models.Model):
     def __str__(self):
         return self.shop_name
 
-#School model
 class SchoolProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='school_profile')
     school_name = models.CharField(max_length=255)
@@ -93,35 +85,30 @@ class SchoolProfile(models.Model):
     def __str__(self):
         return self.school_name
 
-#Booklist model
 class BookList(models.Model):
     school = models.ForeignKey(SchoolProfile, on_delete=models.CASCADE, related_name='book_lists')
     grade = models.CharField(max_length=50)
     academic_year = models.CharField(max_length=20, help_text="e.g., 2024-2025")
-    # A ManyToManyField means one list has many books, and one book can be on many lists
     textbooks = models.ManyToManyField(Textbook, related_name='appears_on_lists')
 
     def __str__(self):
         return f"Book List for {self.grade} ({self.academic_year}) - {self.school.school_name}"
 
-#Review Model
 class Review(models.Model):
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='reviews')
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_given')
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_received')
-    rating = models.IntegerField(choices=[(i, i) for i in range(1, 6)]) # 1-5 stars
+    rating = models.IntegerField(choices=[(i, i) for i in range(1, 6)])
     comment = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        # After saving the review, update the seller's average rating
         self.seller.update_rating()
 
     def __str__(self):
         return f"Review by {self.reviewer.username} for {self.seller.username} ({self.rating} stars)"
 
-#conversation model
 class Conversation(models.Model):
     participants = models.ManyToManyField(User, related_name='conversations')
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='conversations', null=True, blank=True)
@@ -132,7 +119,6 @@ class Conversation(models.Model):
     def __str__(self):
         return f"Conversation {self.id}-{self.listing}"
 
-#message model
 class Message(models.Model):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
@@ -146,7 +132,6 @@ class Message(models.Model):
     def __str__(self):
         return f"Message from {self.sender.username}"
 
-#cart model
 class Cart(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -160,7 +145,7 @@ class CartItem(models.Model):
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('cart', 'listing') # Prevent adding same item twice
+        unique_together = ('cart', 'listing')
 
     def __str__(self):
         return f"{self.listing.textbook.title} in {self.cart.user.username}'s cart"
@@ -173,22 +158,14 @@ class SwapRequest(models.Model):
         ('completed', 'Completed'),
     )
 
-    # Who is asking?
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_swaps')
-    # Who owns the book being requested?
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_swaps')
-    
-    # The book the sender WANTS
     requested_listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='swap_requests_received')
-    
-    # The book the sender is OFFERING
     offered_listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='swap_requests_sent')
-    
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Prevent duplicate requests for the same pair of books
         unique_together = ('requested_listing', 'offered_listing')
 
     def __str__(self):
@@ -196,7 +173,6 @@ class SwapRequest(models.Model):
 
 class Order(models.Model):
     buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
-    # Link to the specific listing being bought
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE) 
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -213,23 +189,19 @@ class Delivery(models.Model):
         ('cancelled', 'Cancelled'),
     ]
     
-    # Delivery can be for a Swap OR an Order
     orders = models.ManyToManyField(Order, related_name='delivery')    
     swap = models.OneToOneField(SwapRequest, null=True, blank=True, on_delete=models.CASCADE, related_name='delivery')
 
-    # Logistics Info
-    pickup_location = models.CharField(max_length=255) # Seller's location
-    dropoff_location = models.CharField(max_length=255) # Buyer's location
+    pickup_location = models.CharField(max_length=255)
+    dropoff_location = models.CharField(max_length=255)
     tracking_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     rider = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries_assigned')
-    rider_phone = models.CharField(max_length=15, blank=True, null=True) # Rider Contact
+    rider_phone = models.CharField(max_length=15, blank=True, null=True)
     
-    # Transport Cost (Standard rate for Nyeri)
     transport_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00) 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Realtime tracking
     current_lat = models.FloatField(null=True, blank=True)
     current_lng = models.FloatField(null=True, blank=True)
     last_updated = models.DateTimeField(auto_now=True)
@@ -250,9 +222,8 @@ class Payment(models.Model):
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, default='mpesa') 
     paystack_ref = models.CharField(max_length=100, blank=True, null=True)
 
-    # M-Pesa Number
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    transaction_code = models.CharField(max_length=50, blank=True, null=True) # e.g. QKD920...
+    transaction_code = models.CharField(max_length=50, blank=True, null=True)
     is_successful = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
 
@@ -286,7 +257,7 @@ from django.db.models.signals import post_save
 from django_rest_passwordreset.signals import reset_password_token_created
 from django.core.mail import send_mail
 from django.urls import reverse
-# Create wallet for new users
+
 @receiver(post_save, sender=User)
 def create_user_wallet(sender, instance, created, **kwargs):
     if created:
@@ -294,22 +265,16 @@ def create_user_wallet(sender, instance, created, **kwargs):
 
 @receiver(reset_password_token_created)
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
-    # This prints the token to your specific Terminal window
     print(f"\n\n==========================================")
     print(f"PASSWORD RESET TOKEN FOR {reset_password_token.user.email}")
     print(f"Token: {reset_password_token.key}")
     print(f"==========================================\n\n")
 
-    # This attempts to send the email (if Console backend is set, it prints it too)
     email_plaintext_message = "Use this token to reset your password: {}".format(reset_password_token.key)
 
     send_mail(
-        # title:
         "Password Reset for {title}".format(title="Textbook Exchange"),
-        # message:
         email_plaintext_message,
-        # from:
         "noreply@textbookexchange.com",
-        # to:
         [reset_password_token.user.email]
     )

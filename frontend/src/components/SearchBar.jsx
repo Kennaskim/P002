@@ -8,7 +8,6 @@ const SearchBar = () => {
     const handleSearch = (e) => {
         e.preventDefault();
         if (query.trim()) {
-            // Redirect to home with the search query in the URL
             navigate(`/?q=${encodeURIComponent(query)}`);
         }
     };

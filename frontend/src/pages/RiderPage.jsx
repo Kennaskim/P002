@@ -8,13 +8,11 @@ import ConfirmModal from '../components/ConfirmModal';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix Leaflet Icons
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 let DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Custom Icons for Map
 const IconFactory = (emoji) => L.divIcon({
     html: `<div style="background-color: white; border-radius: 50%; padding: 5px; box-shadow: 0 3px 5px rgba(0,0,0,0.3); font-size: 20px; line-height: 1;">${emoji}</div>`,
     className: 'custom-icon',
@@ -22,7 +20,6 @@ const IconFactory = (emoji) => L.divIcon({
     iconAnchor: [17, 17]
 });
 
-// Helper: Recenter map
 const RecenterMap = ({ lat, lng }) => {
     const map = useMap();
     useEffect(() => {
@@ -41,14 +38,12 @@ const RiderPage = () => {
     const [gpsStatus, setGpsStatus] = useState("Waiting for GPS...");
     const [isMapExpanded, setIsMapExpanded] = useState(false);
 
-    // --- NEW: Route State ---
     const [routePath, setRoutePath] = useState(null);
     const [jobCoords, setJobCoords] = useState({ start: null, end: null });
 
     const ws = useRef(null);
     const watchId = useRef(null);
 
-    // 1. Load Jobs
     const loadJobs = () => {
         getAvailableDeliveries().then(res => {
             const data = res.data.results || res.data;
@@ -70,7 +65,6 @@ const RiderPage = () => {
         return () => stopTracking();
     }, []);
 
-    // 2. Poll for new jobs
     useEffect(() => {
         const interval = setInterval(() => {
             if (isOnline && !activeJob) loadJobs();
@@ -78,7 +72,6 @@ const RiderPage = () => {
         return () => clearInterval(interval);
     }, [isOnline, activeJob]);
 
-    // 3. Tracking & Route Calculation
     useEffect(() => {
         if (activeJob) {
             startTracking();
@@ -179,7 +172,6 @@ const RiderPage = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans flex flex-col">
-            {/* --- MODAL --- */}
             <ConfirmModal
                 isOpen={showCompleteModal}
                 title="Complete Delivery?"
@@ -188,7 +180,6 @@ const RiderPage = () => {
                 onConfirm={handleConfirmComplete}
                 onCancel={() => setShowCompleteModal(false)}
             />
-            {/* Header */}
             {!isMapExpanded && (
                 <div className="bg-slate-900 text-white p-6 rounded-b-3xl shadow-xl z-20">
                     <div className="flex justify-between items-center">
@@ -217,20 +208,16 @@ const RiderPage = () => {
                 {activeJob ? (
                     <div className={`bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 flex flex-col ${isMapExpanded ? 'h-screen fixed inset-0 z-50 rounded-none' : ''}`}>
 
-                        {/* Map Section */}
                         <div className={`relative ${isMapExpanded ? 'flex-1' : 'h-64'} bg-gray-200`}>
                             {myLocation ? (
                                 <MapContainer center={myLocation} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
                                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-                                    {/* 1. Rider Marker */}
                                     <Marker position={myLocation} icon={IconFactory('🏍️')}><Popup>You</Popup></Marker>
 
-                                    {/* 2. Pickup & Dropoff Markers */}
                                     {jobCoords.start && <Marker position={jobCoords.start} icon={IconFactory('📍')}><Popup>Pickup</Popup></Marker>}
                                     {jobCoords.end && <Marker position={jobCoords.end} icon={IconFactory('🏁')}><Popup>Dropoff</Popup></Marker>}
 
-                                    {/* 3. The Route Path */}
                                     {routePath && <Polyline positions={routePath} color="#2563eb" weight={6} opacity={0.8} />}
 
                                     <RecenterMap lat={myLocation[0]} lng={myLocation[1]} />
@@ -253,7 +240,6 @@ const RiderPage = () => {
                             </div>
                         </div>
 
-                        {/* Details */}
                         <div className="p-5 bg-white border-t">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
@@ -298,7 +284,6 @@ const RiderPage = () => {
                         </div>
                     </div>
                 ) : (
-                    /* JOB LIST */
                     <div className="space-y-4 pt-4">
                         {isOnline && jobs.length === 0 && (
                             <div className="text-center py-10 bg-white rounded-xl shadow-sm border border-gray-100">

@@ -1,7 +1,6 @@
 export const createWsClient = (path, onMessage) => {
-    // 1. Build the WebSocket URL (ws://127.0.0.1:8000/ws/chat/...)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = '127.0.0.1:8000'; // Or your LAN IP if testing on mobile
+    const host = '127.0.0.1:8000';
     const url = `${protocol}//${host}${path}`;
 
     console.log("Connecting to WS:", url);

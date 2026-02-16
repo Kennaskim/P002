@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useNotification } from '../context/NotificationContext';
 import Button from '../components/Button';
-import ConfirmModal from '../components/ConfirmModal'; // <--- IMPORT
+import ConfirmModal from '../components/ConfirmModal';
 import api from '../utils/api';
 
 const CartPage = () => {
@@ -12,7 +12,6 @@ const CartPage = () => {
     const [processing, setProcessing] = useState(false);
     const navigate = useNavigate();
 
-    // --- MODAL STATE ---
     const [confirmModal, setConfirmModal] = useState({ show: false, action: null, title: "", message: "" });
 
     if (loading && !cart) return <div className="p-8 text-center">Loading cart...</div>;
@@ -20,7 +19,6 @@ const CartPage = () => {
     const items = cart?.items || [];
     const total = items.reduce((sum, item) => sum + Number(item.listing.price), 0);
 
-    // 1. Handle Remove Click
     const requestRemove = (itemId) => {
         setConfirmModal({
             show: true,
@@ -35,7 +33,6 @@ const CartPage = () => {
         });
     };
 
-    // 2. Handle Checkout Click
     const requestCheckout = () => {
         if (items.length === 0) return;
         setConfirmModal({
@@ -49,7 +46,7 @@ const CartPage = () => {
     };
 
     const executeCheckout = async () => {
-        setConfirmModal({ show: false }); // Close modal
+        setConfirmModal({ show: false });
         setProcessing(true);
 
         try {
@@ -82,7 +79,6 @@ const CartPage = () => {
         <div className="container mx-auto px-4 py-8">
             <h1 className="text-2xl font-bold mb-8">Shopping Cart ({items.length} items)</h1>
 
-            {/* --- CONFIRMATION MODAL --- */}
             <ConfirmModal
                 isOpen={confirmModal.show}
                 title={confirmModal.title}

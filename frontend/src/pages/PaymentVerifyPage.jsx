@@ -6,7 +6,7 @@ import Layout from '../components/Layout';
 const PaymentVerifyPage = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const [status, setStatus] = useState('verifying'); // verifying, success, error
+    const [status, setStatus] = useState('verifying');
     const reference = searchParams.get('reference');
 
     useEffect(() => {
@@ -20,7 +20,6 @@ const PaymentVerifyPage = () => {
                 await verifyPaystackPayment(reference);
                 setStatus('success');
 
-                // Redirect to dashboard after 3 seconds
                 setTimeout(() => {
                     navigate('/dashboard');
                 }, 3000);

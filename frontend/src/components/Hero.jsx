@@ -114,7 +114,6 @@ const Hero = () => {
         );
     }
 
-    // 4. PARENT / GUEST VIEW
     return (
         <div className="bg-green-900 text-white py-20 px-6 mb-8 rounded-b-[3rem] shadow-2xl relative overflow-hidden">
             <svg className="absolute inset-0 w-full h-full opacity-10" viewBox="0 0 100 100" preserveAspectRatio="none">

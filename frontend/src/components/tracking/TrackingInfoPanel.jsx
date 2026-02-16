@@ -3,17 +3,17 @@ import { useNotification } from '../../context/NotificationContext';
 const TrackingInfoPanel = ({
     status,
     riderPhone,
-    locations, // { pickup, dropoff }
-    permissions, // { canEditPickup, canEditDropoff, labelPickup, labelDropoff, isPayer, roleName }
-    costs, // { deliveryFee, booksTotal }
-    onUpdateLocation, // async (type, value) => {}
-    onPay, // async (phone) => {}
+    locations,
+    permissions,
+    costs,
+    onUpdateLocation,
+    onPay,
     onCancel,
     isSwap,
     processing
 }) => {
     const { notify } = useNotification();
-    const [isEditing, setIsEditing] = useState(null); // 'pickup' | 'dropoff' | null
+    const [isEditing, setIsEditing] = useState(null);
     const [tempLocation, setTempLocation] = useState('');
     const [paymentPhone, setPaymentPhone] = useState('');
 
@@ -28,7 +28,6 @@ const TrackingInfoPanel = ({
         setIsEditing(null);
     };
 
-    // Helper to render an input field
     const renderLocationField = (type, label, value, canEdit) => {
         const isLocked = ['shipped', 'delivered', 'cancelled'].includes(status);
         const editingThis = isEditing === type;
@@ -70,7 +69,6 @@ const TrackingInfoPanel = ({
 
     return (
         <div className="space-y-6">
-            {/* 1. LOCATIONS CARD */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative overflow-hidden">
                 <div className={`absolute top-0 left-0 w-1 h-full ${isSwap ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
                 <h3 className="font-bold text-gray-800 mb-6">Route Details</h3>
@@ -91,7 +89,7 @@ const TrackingInfoPanel = ({
                     <span className="text-lg font-bold text-gray-900">KSh {Number(costs.deliveryFee).toFixed(0)}</span>
                 </div>
             </div>
-            {/* A. Searching for Rider */}
+
             {status === 'paid' && (
                 <div className="bg-blue-50 border border-blue-200 p-6 rounded-xl text-center">
                     <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3"></div>
@@ -100,7 +98,6 @@ const TrackingInfoPanel = ({
                 </div>
             )}
 
-            {/* B. Rider Found (Shipped) */}
             {status === 'shipped' && (
                 <div className="bg-green-50 border border-green-200 p-6 rounded-xl">
                     <h3 className="font-bold text-green-800 flex items-center gap-2 mb-2">
@@ -118,7 +115,6 @@ const TrackingInfoPanel = ({
                 </div>
             )}
 
-            {/* 2. PAYMENT CARD */}
             {status === 'pending' && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <h3 className="font-bold text-gray-800 mb-4">Payment Breakdown</h3>

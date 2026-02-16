@@ -9,7 +9,6 @@ User = get_user_model()
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        # 1. Get the conversation ID from the URL (e.g., ws/chat/1/)
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.room_group_name = f'chat_{self.room_id}'
         
@@ -63,7 +62,6 @@ class DeliveryConsumer(AsyncWebsocketConsumer):
         self.delivery_id = self.scope['url_route']['kwargs']['delivery_id']
         self.group_name = f'delivery_{self.delivery_id}'
 
-        # Join the delivery group
         await self.channel_layer.group_add(
             self.group_name,
             self.channel_name
@@ -76,11 +74,9 @@ class DeliveryConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
-    # Receive location from Rider
     async def receive(self, text_data):
         data = json.loads(text_data)
         
-        # Broadcast to everyone in the group (Buyer/Seller)
         await self.channel_layer.group_send(
             self.group_name,
             {
@@ -92,7 +88,6 @@ class DeliveryConsumer(AsyncWebsocketConsumer):
             }
         )
 
-    # Send update to WebSocket
     async def delivery_update(self, event):
         await self.send(text_data=json.dumps({
             'latitude': event['latitude'],

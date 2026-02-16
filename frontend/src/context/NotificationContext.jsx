@@ -7,12 +7,10 @@ export const useNotification = () => useContext(NotificationContext);
 export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
 
-    // Add a new toast
     const notify = useCallback((message, type = 'info') => {
         const id = Date.now();
         setNotifications(prev => [...prev, { id, message, type }]);
 
-        // Auto-remove after 3 seconds
         setTimeout(() => {
             removeNotification(id);
         }, 3000);
@@ -25,7 +23,6 @@ export const NotificationProvider = ({ children }) => {
     return (
         <NotificationContext.Provider value={{ notify }}>
             {children}
-            {/* Render Toasts Container */}
             <div className="fixed bottom-5 right-5 z-[3000] flex flex-col gap-3">
                 {notifications.map(({ id, message, type }) => (
                     <div

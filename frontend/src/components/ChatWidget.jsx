@@ -10,27 +10,21 @@ const ChatWidget = ({ conversationId, delivery }) => {
     const ws = useRef(null);
     const messagesEndRef = useRef(null);
 
-    // --- NEW: Participant Mapping Logic ---
-    // This creates a lookup table: { 15: "Kevin (Buyer)", 18: "John (Seller)" }
     const participantMap = useMemo(() => {
         const map = {};
         if (!delivery) return map;
 
-        // 1. Map Orders (Buyer & Seller)
         if (delivery.orders && delivery.orders.length > 0) {
             const order = delivery.orders[0];
 
-            // Map Buyer
             if (order.buyer) {
                 map[order.buyer.id] = { name: order.buyer.username, role: 'Buyer' };
             }
-            // Map Seller
             if (order.listing && order.listing.listed_by) {
                 map[order.listing.listed_by.id] = { name: order.listing.listed_by.username, role: 'Seller' };
             }
         }
 
-        // 2. Map Swaps (Sender & Receiver)
         if (delivery.swap) {
             const { sender, receiver } = delivery.swap;
             if (sender) map[sender.id] = { name: sender.username, role: 'Swapper A' };
@@ -40,28 +34,21 @@ const ChatWidget = ({ conversationId, delivery }) => {
         return map;
     }, [delivery]);
 
-    // Helper to get name from ID
     const getSenderInfo = (senderId) => {
-        // CONVERT TO INT: WebSocket usually sends strings, but IDs are numbers
         const id = parseInt(senderId);
         const myId = parseInt(user.id);
 
         if (id === myId) return { name: 'Me', role: 'Rider' };
 
-        // Look up in the map using the integer ID
         return participantMap[id] || { name: `User #${id}`, role: 'Partner' };
     };
-    // --------------------------------------
 
-    // 1. Fetch History & Connect WS
     useEffect(() => {
         if (isOpen && conversationId) {
-            // Load history
             api.get(`conversations/${conversationId}/messages/`)
                 .then(res => setMessages(res.data))
                 .catch(err => console.error("Chat Load Error", err));
 
-            // Connect WebSocket
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws.current = new WebSocket(`${protocol}//127.0.0.1:8000/ws/chat/${conversationId}/`);
 
@@ -70,7 +57,7 @@ const ChatWidget = ({ conversationId, delivery }) => {
                 setMessages((prev) => [...prev, {
                     id: Date.now(),
                     content: data.message,
-                    sender: { id: data.sender_id }, // WS only sends ID
+                    sender: { id: data.sender_id },
                     timestamp: new Date().toISOString()
                 }]);
                 scrollToBottom();
@@ -109,7 +96,6 @@ const ChatWidget = ({ conversationId, delivery }) => {
             {isOpen && (
                 <div className="bg-white w-80 h-96 rounded-xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden mb-4 animate-slide-up">
 
-                    {/* Header */}
                     <div className="bg-slate-900 text-white p-3 flex justify-between items-center shadow-md">
                         <div>
                             <div className="flex items-center gap-2">
@@ -123,20 +109,17 @@ const ChatWidget = ({ conversationId, delivery }) => {
                         <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white px-2">✕</button>
                     </div>
 
-                    {/* Messages Area */}
                     <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
                         {messages.map((msg, idx) => {
                             const senderId = msg.sender?.id || msg.sender_id;
                             const isMe = parseInt(senderId) === user.id;
 
-                            // Get Name and Role using our new helper
                             const { name, role } = getSenderInfo(senderId);
 
                             return (
                                 <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[85%] p-2 rounded-xl text-sm shadow-sm relative ${isMe ? 'bg-slate-800 text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
                                         }`}>
-                                        {/* NAME LABEL (Only for others) */}
                                         {!isMe && (
                                             <div className="flex justify-between items-center mb-1 gap-2">
                                                 <span className="text-[10px] font-bold text-orange-600 truncate">{name}</span>
@@ -156,7 +139,6 @@ const ChatWidget = ({ conversationId, delivery }) => {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Input */}
                     <form onSubmit={sendMessage} className="p-2 bg-white border-t flex gap-2">
                         <input
                             className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 bg-gray-50"
@@ -171,7 +153,6 @@ const ChatWidget = ({ conversationId, delivery }) => {
                 </div>
             )}
 
-            {/* Toggle Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="bg-slate-900 hover:bg-black text-white w-14 h-14 rounded-full shadow-xl transition transform hover:scale-105 flex items-center justify-center border-4 border-white z-[2000]"

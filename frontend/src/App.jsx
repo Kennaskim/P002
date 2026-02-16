@@ -43,14 +43,12 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
               <Route element={<Layout />}>
-                {/* --- PUBLIC ROUTES (Accessible by anyone) --- */}
                 <Route path="/" element={<HomePage />} />
                 <Route path="/listings/:id" element={<ListingDetailPage />} />
                 <Route path="/schools" element={<SchoolsPage />} />
                 <Route path="/schools/:schoolId/booklists" element={<SchoolBookListsPage />} />
                 <Route path="/bookshops" element={<BookshopsPage />} />
 
-                {/* --- PRIVATE ROUTES (Must be logged in) --- */}
                 <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
                 <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
                 <Route path="/listings/create" element={<PrivateRoute><CreateListingPage /></PrivateRoute>} />

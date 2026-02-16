@@ -8,7 +8,7 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('access_token'));
     const [loading, setLoading] = useState(true);
-    //check if user is logged in
+
     useEffect(() => {
         const checkAuth = async () => {
             const token = localStorage.getItem('access_token');
@@ -28,16 +28,13 @@ export const AuthProvider = ({ children }) => {
         checkAuth();
     }, []);
 
-    // 2. Login Function
     const login = async (email, password) => {
         try {
             const response = await api.post('auth/login/', { email, password });
 
-            // Save tokens
             localStorage.setItem('access_token', response.data.access);
             localStorage.setItem('refresh_token', response.data.refresh);
 
-            // Fetch user details immediately after login
             const userResponse = await api.get('auth/me/');
             setUser(userResponse.data);
 
@@ -48,7 +45,6 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // 3. Logout Function
     const logout = () => {
         setToken(null);
         setUser(null);
@@ -58,7 +54,6 @@ export const AuthProvider = ({ children }) => {
         window.location.href = '/login';
     };
 
-    // 4. Register Function
     const register = async (userData) => {
         try {
             await api.post('auth/register/', userData);

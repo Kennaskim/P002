@@ -14,7 +14,6 @@ const CreateListingPage = () => {
     const [textbooks, setTextbooks] = useState([]);
     const [isNewBook, setIsNewBook] = useState(false);
 
-    // Form State
     const [formData, setFormData] = useState({
         textbook_id: '',
         price: '',
@@ -38,16 +37,14 @@ const CreateListingPage = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // Special handler for Subject to toggle Grade visibility
     const handleSubjectChange = (e) => {
         const subject = e.target.value;
         let grade = formData.grade;
 
-        // If a generic subject is picked, force grade to 'General'
         if (GENERIC_SUBJECTS.includes(subject)) {
             grade = 'General';
         } else if (grade === 'General') {
-            grade = 'Grade 1'; // Reset to a default grade if switching back
+            grade = 'Grade 1';
         }
 
         setFormData({ ...formData, subject, grade });
@@ -60,7 +57,6 @@ const CreateListingPage = () => {
         try {
             let finalTextbookId = formData.textbook_id;
 
-            // 1. If creating a NEW textbook, save it first
             if (isNewBook) {
                 const textbookRes = await api.post('textbooks/', {
                     title: formData.title,
@@ -71,7 +67,6 @@ const CreateListingPage = () => {
                 finalTextbookId = textbookRes.data.id;
             }
 
-            // 2. Create the Listing
             let finalPrice = formData.price;
             if (formData.listing_type === 'exchange' || !finalPrice) {
                 finalPrice = 0;
@@ -85,11 +80,10 @@ const CreateListingPage = () => {
                 description: formData.description
             });
 
-            navigate('/'); // Success!
+            navigate('/');
         } catch (error) {
             console.error(error);
             const errorData = error.response?.data;
-            // Show smarter error message
             let errorMsg = "Failed to create listing.";
             if (errorData?.price) errorMsg = "Price is required (enter 0 for free/exchange).";
             else if (errorData?.listing_type) errorMsg = errorData.listing_type[0];
@@ -152,7 +146,6 @@ const CreateListingPage = () => {
                             <Input label="Author / Publisher" name="author" value={formData.author} onChange={handleChange} placeholder="e.g. Oxford University Press" />
                         </div>
 
-                        {/* Subject Selection */}
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Category / Subject</label>
                             <select
@@ -170,7 +163,6 @@ const CreateListingPage = () => {
                             </select>
                         </div>
 
-                        {/* Grade Selection - Hides if Generic */}
                         {!isGeneric && (
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level</label>

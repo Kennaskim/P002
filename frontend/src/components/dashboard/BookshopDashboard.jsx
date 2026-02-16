@@ -10,7 +10,6 @@ const BookshopDashboard = ({ user }) => {
     const [deliveries, setDeliveries] = useState([]);
     const [showBulkUpload, setShowBulkUpload] = useState(false);
 
-    // OPTIMIZATION: Fetch data in parallel
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -64,7 +63,6 @@ const BookshopDashboard = ({ user }) => {
                 <p className="text-purple-700">Welcome, <strong>{user.username}</strong> (Bookshop Owner). Manage your shop inventory.</p>
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-white p-6 rounded shadow text-center border-t-4 border-purple-500">
                     <div className="text-2xl font-bold">{inventory.length}</div>
@@ -80,7 +78,6 @@ const BookshopDashboard = ({ user }) => {
                 </div>
             </div>
 
-            {/* Outgoing Sales */}
             <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">📦 Outgoing Sales (To Ship)</h3>
                 {mySales.length === 0 ? (
