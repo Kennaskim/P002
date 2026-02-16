@@ -10,7 +10,6 @@ const Navbar = () => {
     const { cart } = useCart();
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-
     const [unreadMessages, setUnreadMessages] = useState(0);
 
     const handleLogout = () => {
@@ -24,6 +23,7 @@ const Navbar = () => {
         const checkMessages = async () => {
             try {
                 const res = await getConversations();
+                // Simple logic to count unread - can be refined based on your backend
                 setUnreadMessages(res.data.length);
             } catch (err) {
                 console.error("Msg check failed", err);
@@ -46,6 +46,7 @@ const Navbar = () => {
         switch (user.user_type) {
             case 'rider':
                 return [
+                    { name: 'Home', path: '/' },
                     { name: 'Dashboard', path: '/rider' },
                     { name: 'Earnings', path: '/earnings' },
                     { name: 'My Profile', path: '/profile' },
@@ -53,23 +54,22 @@ const Navbar = () => {
             case 'school':
                 return [
                     { name: 'Home', path: '/' },
-                    { name: 'Dashboard', path: '/dashboard' },
-                    { name: 'My Booklists', path: `/schools/${user.id}/booklists` },
+                    { name: 'Dashboard', path: '/dashboard' }, // Centralized Management
                     { name: 'School Profile', path: '/profile' },
                 ];
             case 'bookshop':
                 return [
                     { name: 'Home', path: '/' },
-                    { name: 'Dashboard', path: '/dashboard' },
-                    { name: 'Inventory', path: '/listings/create' },
-                    { name: 'Orders', path: '/orders' },
+                    { name: 'Dashboard', path: '/dashboard' }, // Centralized Inventory
+                    { name: 'Messages', path: '/chat', badge: unreadMessages > 0 ? '•' : null },
+                    { name: 'Shop Profile', path: '/profile' },
                 ];
-            default:
+            default: // Parent / Regular User
                 return [
                     { name: 'Home', path: '/' },
                     { name: 'Schools', path: '/schools' },
                     { name: 'Bookshops', path: '/bookshops' },
-                    { name: 'My Dashboard', path: '/dashboard' },
+                    { name: 'Dashboard', path: '/dashboard' },
                     {
                         name: 'Cart',
                         path: '/cart',
@@ -80,26 +80,30 @@ const Navbar = () => {
                         path: '/chat',
                         badge: unreadMessages > 0 ? '•' : null
                     },
-                    { name: 'Profile', path: '/profile' },
+                    { name: 'My Profile', path: '/profile' },
                 ];
         }
     };
+
     const showSearch = !user || user.user_type === 'parent';
 
     return (
         <nav className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
             <div className="container mx-auto px-4">
                 <div className="flex justify-between items-center h-16">
+                    {/* Logo */}
                     <Link to="/" className="text-xl font-extrabold text-green-700 flex items-center gap-2 flex-shrink-0">
                         📚 TextbookExchange
                     </Link>
 
+                    {/* Search Bar (Desktop) */}
                     {showSearch && (
                         <div className="hidden md:block flex-1 mx-4 lg:mx-8 max-w-2xl min-w-0 transition-all duration-300">
                             <SearchBar />
                         </div>
                     )}
 
+                    {/* Desktop Links */}
                     <div className="hidden md:flex items-center gap-6 flex-shrink-0">
                         {getLinks().map(link => (
                             <Link
@@ -115,6 +119,7 @@ const Navbar = () => {
                                 )}
                             </Link>
                         ))}
+
                         {user && (
                             <button
                                 onClick={handleLogout}
@@ -125,6 +130,7 @@ const Navbar = () => {
                         )}
                     </div>
 
+                    {/* Mobile Menu Button */}
                     <button
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
                         className="md:hidden p-2 text-gray-600 rounded-md hover:bg-gray-100 relative"
@@ -136,6 +142,7 @@ const Navbar = () => {
                     </button>
                 </div>
 
+                {/* Mobile Menu Dropdown */}
                 {isMenuOpen && (
                     <div className="md:hidden py-4 border-t border-gray-100 bg-gray-50 px-4 space-y-2">
                         {showSearch && (
@@ -148,7 +155,7 @@ const Navbar = () => {
                                 key={link.name}
                                 to={link.path}
                                 onClick={() => setIsMenuOpen(false)}
-                                className="flex justify-between items-center text-gray-700 py-2 hover:text-green-600 font-medium"
+                                className="flex justify-between items-center text-gray-700 py-2 hover:text-green-600 font-medium border-b border-gray-100 last:border-0"
                             >
                                 {link.name}
                                 {link.badge && (
@@ -159,7 +166,7 @@ const Navbar = () => {
                             </Link>
                         ))}
                         {user && (
-                            <button onClick={handleLogout} className="block w-full text-left text-red-600 py-2 font-bold">
+                            <button onClick={handleLogout} className="block w-full text-left text-red-600 py-2 font-bold mt-2">
                                 Logout
                             </button>
                         )}

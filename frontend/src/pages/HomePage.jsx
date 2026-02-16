@@ -48,9 +48,10 @@ const HomePage = () => {
     }, [location.search, isMarketUser]);
 
     return (
-        <div className="pb-12">
+        <div className="pb-12 bg-gray-50 min-h-screen">
             <Hero />
 
+            {/* --- RIDER VIEW --- */}
             {isRider && (
                 <div className="container mx-auto px-4 text-center py-8">
                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 max-w-3xl mx-auto flex flex-col md:flex-row items-center gap-6">
@@ -70,67 +71,74 @@ const HomePage = () => {
                 </div>
             )}
 
+            {/* --- SCHOOL ADMIN VIEW (FIXED) --- */}
             {isSchool && (
-                <div className="container mx-auto px-4">
+                <div className="container mx-auto px-4 py-10">
+                    <div className="max-w-4xl mx-auto text-center mb-8">
+                        <h2 className="text-2xl font-bold text-gray-800">School Administration</h2>
+                        <p className="text-gray-500">Manage your school's book lists and profile settings.</p>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-xl font-bold text-gray-800">📚 Book Lists</h3>
-                                <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">Required</span>
-                            </div>
-                            <p className="text-gray-500 mb-6">
-                                Upload and manage the required textbooks for each grade. Parents will see these lists automatically.
-                            </p>
-                            <Link to="/schools/1/booklists" className="text-blue-600 font-bold hover:underline flex items-center gap-2">
-                                Manage Lists <span>→</span>
-                            </Link>
-                        </div>
 
-                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-xl font-bold text-gray-800">🏫 School Profile</h3>
-                                <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">Public</span>
-                            </div>
-                            <p className="text-gray-500 mb-6">
-                                Update your school details, location, and contact info so parents can find you.
+                        {/* Card 1: Manage Book Lists (Fixed Link to Dashboard) */}
+                        <Link to="/dashboard" className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition flex flex-col items-center text-center">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Manage Book Lists</h3>
+                            <p className="text-gray-500 text-sm mb-6">
+                                Create and update required textbook lists for the academic year.
                             </p>
-                            <Link to="/profile" className="text-blue-600 font-bold hover:underline flex items-center gap-2">
-                                Edit Profile <span>→</span>
-                            </Link>
-                        </div>
-                    </div>
+                            <span className="text-blue-600 font-bold group-hover:underline">Go to Dashboard &rarr;</span>
+                        </Link>
 
-                    <div className="text-center mt-12 text-gray-400 text-sm">
-                        <p>School Admins do not participate in direct peer-to-peer sales.</p>
+                        {/* Card 2: Edit Profile */}
+                        <Link to="/profile" className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:border-green-500 hover:shadow-md transition flex flex-col items-center text-center">
+
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">School Profile</h3>
+                            <p className="text-gray-500 text-sm mb-6">
+                                Update your school's location, contact details, and visibility.
+                            </p>
+                            <span className="text-green-600 font-bold group-hover:underline">Edit Profile &rarr;</span>
+                        </Link>
+
                     </div>
                 </div>
             )}
 
+            {/* --- BOOKSHOP VIEW --- */}
             {isBookshop && (
-                <div className="container mx-auto px-4">
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-4xl mx-auto">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                            <div>
-                                <h2 className="text-2xl font-bold text-purple-900 mb-2">My Bookshop Inventory</h2>
-                                <p className="text-gray-500">
-                                    You have active listings visible to parents. Keep your stock updated.
-                                </p>
-                            </div>
-                            <div className="flex gap-3">
-                                <Link to="/dashboard" className="px-6 py-3 bg-purple-100 text-purple-700 font-bold rounded-lg hover:bg-purple-200 transition">
-                                    View Dashboard
-                                </Link>
-                                <Link to="/listings/create" className="px-6 py-3 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition shadow-lg">
-                                    + Add New Stock
-                                </Link>
-                            </div>
-                        </div>
+                <div className="container mx-auto px-4 py-10">
+                    <div className="max-w-4xl mx-auto text-center mb-8">
+                        <h2 className="text-2xl font-bold text-gray-800">Bookshop Portal</h2>
+                        <p className="text-gray-500">Manage your inventory and shop settings.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+
+                        {/* Card 1: Manage Inventory */}
+                        <Link to="/dashboard" className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:border-purple-500 hover:shadow-md transition flex flex-col items-center text-center">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Manage Inventory</h3>
+                            <p className="text-gray-500 text-sm mb-6">
+                                Add new books, update prices, and manage your current stock levels.
+                            </p>
+                            <span className="text-purple-600 font-bold group-hover:underline">Go to Dashboard &rarr;</span>
+                        </Link>
+
+                        {/* Card 2: Shop Profile */}
+                        <Link to="/profile" className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition flex flex-col items-center text-center">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Shop Profile</h3>
+                            <p className="text-gray-500 text-sm mb-6">
+                                Update your shop name, location, and contact information.
+                            </p>
+                            <span className="text-blue-600 font-bold group-hover:underline">Edit Profile &rarr;</span>
+                        </Link>
+
                     </div>
                 </div>
             )}
 
+            {/* --- MARKET USER VIEW (PARENTS/GUESTS) --- */}
             {isMarketUser && (
-                <div className="container mx-auto px-4">
+                <div className="container mx-auto px-4 mt-8">
                     <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900">

@@ -221,9 +221,10 @@ class ConversationSerializer(serializers.ModelSerializer):
     other_user = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     listing = ListingSerializer(read_only=True)
+    delivery = DeliverySerializer(read_only=True)
     class Meta:
         model = Conversation
-        fields = ['id', 'other_user', 'last_message', 'updated_at', 'listing']
+        fields = ['id', 'other_user', 'last_message', 'updated_at', 'listing', 'delivery']
 
     def get_other_user(self, obj):
         request = self.context.get('request')
@@ -236,6 +237,21 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_last_message(self, obj):
         last_msg = obj.messages.last()
         return last_msg.content if last_msg else ""
+
+    def get_delivery(self, obj):
+        # Return basic delivery info if this chat is linked to one
+        if hasattr(obj, 'delivery'):
+             # We use a simplified serializer here to avoid circular imports or massive payloads
+             # We just need IDs to map roles
+             d = obj.delivery
+             return {
+                 'id': d.id,
+                 'tracking_code': d.tracking_code,
+                 'rider_id': d.rider.id if d.rider else None,
+                 'seller_id': d.orders.first().listing.listed_by.id if d.orders.exists() else (d.swap.sender.id if d.swap else None),
+                 'buyer_id': d.orders.first().buyer.id if d.orders.exists() else (d.swap.receiver.id if d.swap else None)
+             }
+        return None
 
 class CartItemSerializer(serializers.ModelSerializer):
     listing = ListingSerializer(read_only=True)

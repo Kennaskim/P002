@@ -34,7 +34,14 @@ export const createTextbook = (data) => api.post('textbooks/', data);
 export const getBookshops = () => api.get('bookshops/');
 export const getSchools = () => api.get('schools/');
 export const getSchoolBookLists = (schoolId) => api.get(`schools/${schoolId}/booklists/`);
+export const uploadBookListCsv = (listId, formData) => api.post(`my-booklists/${listId}/upload_csv/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const uploadListingCsv = (formData) => api.post('listings/bulk_upload/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+});
 
+export const deleteListing = (id) => api.delete(`listings/${id}/`);
 export const getMyListings = () => api.get('my-listings/');
 export const getMyProfile = () => api.get('auth/user/');
 export const updateListing = (id, data) => api.patch(`listings/${id}/`, data);

@@ -63,7 +63,8 @@ const Hero = () => {
                             Upload required book lists for the academic year and update your school profile for parents to see.
                         </p>
                         <div className="flex gap-4">
-                            <Link to={`/schools/${user.id}/booklists`} className="bg-white text-blue-900 hover:bg-blue-50 font-bold py-3 px-8 rounded-xl transition shadow-lg">
+                            {/* Updated Link to point to the new Dashboard */}
+                            <Link to="/dashboard" className="bg-white text-blue-900 hover:bg-blue-50 font-bold py-3 px-8 rounded-xl transition shadow-lg">
                                 Manage Lists
                             </Link>
                             <Link to="/profile" className="bg-blue-700 hover:bg-blue-600 border border-blue-500 text-white font-bold py-3 px-8 rounded-xl transition">
@@ -98,11 +99,12 @@ const Hero = () => {
                             Reach thousands of parents in Nyeri. List your books, track orders online.
                         </p>
                         <div className="flex gap-4">
+                            {/* Pointing both to dashboard since that's where the action is */}
                             <Link to="/dashboard" className="bg-white text-purple-900 hover:bg-purple-50 font-bold py-3 px-8 rounded-xl transition shadow-lg">
-                                Sales Dashboard
+                                Manage Inventory
                             </Link>
-                            <Link to="/listings/create" className="bg-purple-700 hover:bg-purple-600 border border-purple-500 text-white font-bold py-3 px-8 rounded-xl transition">
-                                + Add Stock
+                            <Link to="/profile" className="bg-purple-700 hover:bg-purple-600 border border-purple-500 text-white font-bold py-3 px-8 rounded-xl transition">
+                                Edit Profile
                             </Link>
                         </div>
                     </div>
@@ -114,6 +116,7 @@ const Hero = () => {
         );
     }
 
+    // 4. PARENT / GUEST VIEW
     return (
         <div className="bg-green-900 text-white py-20 px-6 mb-8 rounded-b-[3rem] shadow-2xl relative overflow-hidden">
             <svg className="absolute inset-0 w-full h-full opacity-10" viewBox="0 0 100 100" preserveAspectRatio="none">

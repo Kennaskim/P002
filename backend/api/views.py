@@ -59,36 +59,91 @@ class ListingViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def bulk_upload(self, request):
         file = request.FILES.get('file')
-        if not file: return Response({'error': 'No file'}, status=400)
+        if not file: return Response({'error': 'No file uploaded'}, status=400)
         
+        added_count = 0
         try:
-            for row in reader:
-                title = row.get('title')
-                if not title: continue
+            # 1. Handle Excel (.xlsx)
+            if file.name.endswith('.xlsx'):
+                wb = openpyxl.load_workbook(file)
+                sheet = wb.active
+                # Get headers from first row
+                headers = [str(cell.value).strip().lower() for cell in sheet[1] if cell.value]
+                
+                for row in sheet.iter_rows(min_row=2, values_only=True):
+                    row_data = dict(zip(headers, row))
+                    title = row_data.get('title')
+                    if not title: continue
 
-                textbook, created = Textbook.objects.get_or_create(
-                    title__iexact=title,
-                    defaults={
-                        'title': title,
-                        'author': row.get('author', 'Unknown'),
-                        'subject': row.get('subject', 'General'),
-                        'grade': 'General'
-                    }
-                )
+                    # Find or create textbook
+                    textbook, _ = Textbook.objects.get_or_create(
+                        title__iexact=title,
+                        defaults={
+                            'title': title,
+                            'author': row_data.get('author', 'Unknown'),
+                            'subject': row_data.get('subject', 'General'),
+                            'grade': 'General'
+                        }
+                    )
 
-                Listing.objects.create(
-                    listed_by=request.user,
-                    textbook=textbook,
-                    listing_type='sell',
-                    condition='new', 
-                    price=row.get('price', 0),
-                    description="In stock at bookshop"
-                )
+                    # Create Listing
+                    Listing.objects.create(
+                        listed_by=request.user,
+                        textbook=textbook,
+                        listing_type='sell',
+                        condition='new', 
+                        price=row_data.get('price', 0),
+                        description="In stock at bookshop"
+                    )
+                    added_count += 1
+
+            # 2. Handle CSV (.csv)
+            elif file.name.endswith('.csv'):
+                try:
+                    decoded_file = file.read().decode('utf-8-sig')
+                except UnicodeDecodeError:
+                    file.seek(0)
+                    decoded_file = file.read().decode('latin-1')
+
+                io_string = io.StringIO(decoded_file)
+                reader = csv.DictReader(io_string)
+                
+                # Normalize headers
+                if reader.fieldnames:
+                    reader.fieldnames = [name.strip().lower() for name in reader.fieldnames]
+
+                for row in reader:
+                    title = row.get('title')
+                    if not title: continue
+
+                    textbook, _ = Textbook.objects.get_or_create(
+                        title__iexact=title,
+                        defaults={
+                            'title': title,
+                            'author': row.get('author', 'Unknown'),
+                            'subject': row.get('subject', 'General'),
+                            'grade': 'General'
+                        }
+                    )
+
+                    Listing.objects.create(
+                        listed_by=request.user,
+                        textbook=textbook,
+                        listing_type='sell',
+                        condition='new', 
+                        price=row.get('price', 0),
+                        description="In stock at bookshop"
+                    )
+                    added_count += 1
             
-            return Response({'status': 'Inventory Imported Successfully'})
+            else:
+                return Response({'error': 'Unsupported file type. Use .csv or .xlsx'}, status=400)
+            
+            return Response({'status': f'Successfully added {added_count} items to inventory.'})
 
         except Exception as e:
-            return Response({'error': str(e)}, status=400)
+            print(f"Upload Error: {e}")
+            return Response({'error': f"File Error: {str(e)}"}, status=400)
 
 class MyListingsView(generics.ListAPIView):
     serializer_class = ListingSerializer
@@ -280,6 +335,33 @@ class MyBookListsView(viewsets.ModelViewSet):
         if not hasattr(self.request.user, 'school_profile'): 
              raise ValidationError("You must be a School Account to create book lists.")
         serializer.save(school=self.request.user.school_profile)
+
+    @action(detail=True, methods=['post'])
+    def create_and_add_book(self, request, pk=None):
+        book_list = self.get_object()
+        title = request.data.get('title')
+        author = request.data.get('author', '')
+        subject = request.data.get('subject', 'General')
+
+        if not title:
+            return Response({'error': 'Title is required'}, status=400)
+
+        # Smartly find or create the textbook
+        textbook, created = Textbook.objects.get_or_create(
+            title__iexact=title,
+            defaults={
+                'title': title,
+                'author': author,
+                'subject': subject,
+                'grade': book_list.grade
+            }
+        )
+        
+        # Add to the list
+        book_list.textbooks.add(textbook)
+        
+        # Return the updated list of books or the single book
+        return Response(TextbookSerializer(textbook).data)
 
     @action(detail=True, methods=['post'])
     def upload_csv(self, request, pk=None):
@@ -530,15 +612,23 @@ class DeliveryViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        queryset = Delivery.objects.select_related(
+        'swap__sender', 
+        'swap__receiver', 
+        'rider'
+    ).prefetch_related(
+        'orders__listing__listed_by', 
+        'orders__buyer'
+    )
 
         if user.user_type == 'rider':
             rider_phone = user.phone_number or ""
-            return Delivery.objects.filter(
+            return queryset.filter(
                 Q(status='paid') | 
                 Q(rider_phone=user.phone_number)
             ).order_by('-created_at')
 
-        return Delivery.objects.filter(
+        return queryset.filter(
             Q(orders__buyer=user) | 
             Q(orders__listing__listed_by=user) |
             Q(swap__sender=user) | 

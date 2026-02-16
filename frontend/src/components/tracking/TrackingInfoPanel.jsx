@@ -75,7 +75,7 @@ const TrackingInfoPanel = ({
 
                 {isSwap && (
                     <div className="mb-4 text-xs bg-purple-50 text-purple-700 p-2 rounded border border-purple-100">
-                        ℹ️ <b>Swap Rule:</b> Proposer pays delivery. Each party sets their own location.
+                        ℹ️ <b>Swap Rule:</b> Proposer pays delivery.
                     </div>
                 )}
 
