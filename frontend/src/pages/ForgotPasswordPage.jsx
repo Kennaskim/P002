@@ -4,7 +4,7 @@ import { requestPasswordReset, confirmPasswordReset } from '../utils/api';
 
 const ForgotPasswordPage = () => {
     const [email, setEmail] = useState('');
-    const [step, setStep] = useState(1); // 1 = Request, 2 = Confirm
+    const [step, setStep] = useState(1);
     const [token, setToken] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ const ForgotPasswordPage = () => {
         setLoading(true);
         try {
             await requestPasswordReset(email);
-            setStep(2); // Move to next step
+            setStep(2);
             alert("Check your backend terminal/console for the reset token!");
         } catch (err) {
             alert("Error: " + (err.response?.data?.email || "User not found"));

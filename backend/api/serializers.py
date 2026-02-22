@@ -239,10 +239,7 @@ class ConversationSerializer(serializers.ModelSerializer):
         return last_msg.content if last_msg else ""
 
     def get_delivery(self, obj):
-        # Return basic delivery info if this chat is linked to one
         if hasattr(obj, 'delivery'):
-             # We use a simplified serializer here to avoid circular imports or massive payloads
-             # We just need IDs to map roles
              d = obj.delivery
              return {
                  'id': d.id,

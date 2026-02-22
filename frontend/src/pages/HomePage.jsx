@@ -51,7 +51,7 @@ const HomePage = () => {
         <div className="pb-12 bg-gray-50 min-h-screen">
             <Hero />
 
-            {/* --- RIDER VIEW --- */}
+
             {isRider && (
                 <div className="container mx-auto px-4 text-center py-8">
                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 max-w-3xl mx-auto flex flex-col md:flex-row items-center gap-6">
@@ -71,7 +71,7 @@ const HomePage = () => {
                 </div>
             )}
 
-            {/* --- SCHOOL ADMIN VIEW (FIXED) --- */}
+
             {isSchool && (
                 <div className="container mx-auto px-4 py-10">
                     <div className="max-w-4xl mx-auto text-center mb-8">
@@ -81,7 +81,7 @@ const HomePage = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
 
-                        {/* Card 1: Manage Book Lists (Fixed Link to Dashboard) */}
+
                         <Link to="/dashboard" className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition flex flex-col items-center text-center">
                             <h3 className="text-xl font-bold text-gray-900 mb-2">Manage Book Lists</h3>
                             <p className="text-gray-500 text-sm mb-6">
@@ -90,7 +90,7 @@ const HomePage = () => {
                             <span className="text-blue-600 font-bold group-hover:underline">Go to Dashboard &rarr;</span>
                         </Link>
 
-                        {/* Card 2: Edit Profile */}
+
                         <Link to="/profile" className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:border-green-500 hover:shadow-md transition flex flex-col items-center text-center">
 
                             <h3 className="text-xl font-bold text-gray-900 mb-2">School Profile</h3>
@@ -104,7 +104,7 @@ const HomePage = () => {
                 </div>
             )}
 
-            {/* --- BOOKSHOP VIEW --- */}
+
             {isBookshop && (
                 <div className="container mx-auto px-4 py-10">
                     <div className="max-w-4xl mx-auto text-center mb-8">
@@ -114,7 +114,7 @@ const HomePage = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
 
-                        {/* Card 1: Manage Inventory */}
+
                         <Link to="/dashboard" className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:border-purple-500 hover:shadow-md transition flex flex-col items-center text-center">
                             <h3 className="text-xl font-bold text-gray-900 mb-2">Manage Inventory</h3>
                             <p className="text-gray-500 text-sm mb-6">
@@ -123,7 +123,7 @@ const HomePage = () => {
                             <span className="text-purple-600 font-bold group-hover:underline">Go to Dashboard &rarr;</span>
                         </Link>
 
-                        {/* Card 2: Shop Profile */}
+
                         <Link to="/profile" className="group bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition flex flex-col items-center text-center">
                             <h3 className="text-xl font-bold text-gray-900 mb-2">Shop Profile</h3>
                             <p className="text-gray-500 text-sm mb-6">
@@ -136,7 +136,7 @@ const HomePage = () => {
                 </div>
             )}
 
-            {/* --- MARKET USER VIEW (PARENTS/GUESTS) --- */}
+
             {isMarketUser && (
                 <div className="container mx-auto px-4 mt-8">
                     <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
-import { useNotification } from '../context/NotificationContext'; // Optional: Use context here if needed
+import { useNotification } from '../context/NotificationContext';
 
 const Layout = () => {
     return (

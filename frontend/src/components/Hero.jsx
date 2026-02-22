@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 const Hero = () => {
     const { user } = useAuth();
 
-    // 1. RIDER VIEW
+
     if (user && user.user_type === 'rider') {
         return (
             <div className="bg-slate-900 text-white py-12 px-6 mb-8 rounded-b-[3rem] shadow-2xl relative overflow-hidden">
@@ -44,7 +44,7 @@ const Hero = () => {
         );
     }
 
-    // 2. SCHOOL ADMIN VIEW
+
     if (user && user.user_type === 'school') {
         return (
             <div className="bg-blue-900 text-white py-16 px-6 mb-8 rounded-b-[3rem] shadow-xl relative overflow-hidden">
@@ -63,7 +63,7 @@ const Hero = () => {
                             Upload required book lists for the academic year and update your school profile for parents to see.
                         </p>
                         <div className="flex gap-4">
-                            {/* Updated Link to point to the new Dashboard */}
+
                             <Link to="/dashboard" className="bg-white text-blue-900 hover:bg-blue-50 font-bold py-3 px-8 rounded-xl transition shadow-lg">
                                 Manage Lists
                             </Link>
@@ -80,7 +80,7 @@ const Hero = () => {
         );
     }
 
-    // 3. BOOKSHOP OWNER VIEW
+
     if (user && user.user_type === 'bookshop') {
         return (
             <div className="bg-purple-900 text-white py-16 px-6 mb-8 rounded-b-[3rem] shadow-xl relative overflow-hidden">
@@ -99,7 +99,7 @@ const Hero = () => {
                             Reach thousands of parents in Nyeri. List your books, track orders online.
                         </p>
                         <div className="flex gap-4">
-                            {/* Pointing both to dashboard since that's where the action is */}
+
                             <Link to="/dashboard" className="bg-white text-purple-900 hover:bg-purple-50 font-bold py-3 px-8 rounded-xl transition shadow-lg">
                                 Manage Inventory
                             </Link>
@@ -116,7 +116,7 @@ const Hero = () => {
         );
     }
 
-    // 4. PARENT / GUEST VIEW
+
     return (
         <div className="bg-green-900 text-white py-20 px-6 mb-8 rounded-b-[3rem] shadow-2xl relative overflow-hidden">
             <svg className="absolute inset-0 w-full h-full opacity-10" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -154,15 +154,8 @@ const Hero = () => {
                     </div>
                 </div>
 
-                <div className="md:w-1/2 mt-10 md:mt-0 flex justify-center">
-                    <div className="relative">
-                        <div className="absolute -inset-4 bg-green-500 rounded-full opacity-30 blur-2xl animate-pulse"></div>
-                        <img
-                            src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80"
-                            alt="Books"
-                            className="relative rounded-2xl shadow-2xl border-4 border-white/20 w-full max-w-sm transform -rotate-2 hover:rotate-0 transition duration-500"
-                        />
-                    </div>
+                <div className="hidden md:block text-9xl opacity-20 transform -rotate-6">
+                    📖
                 </div>
             </div>
         </div>

@@ -63,11 +63,11 @@ class ListingViewSet(viewsets.ModelViewSet):
         
         added_count = 0
         try:
-            # 1. Handle Excel (.xlsx)
+
             if file.name.endswith('.xlsx'):
                 wb = openpyxl.load_workbook(file)
                 sheet = wb.active
-                # Get headers from first row
+
                 headers = [str(cell.value).strip().lower() for cell in sheet[1] if cell.value]
                 
                 for row in sheet.iter_rows(min_row=2, values_only=True):
@@ -75,7 +75,7 @@ class ListingViewSet(viewsets.ModelViewSet):
                     title = row_data.get('title')
                     if not title: continue
 
-                    # Find or create textbook
+
                     textbook, _ = Textbook.objects.get_or_create(
                         title__iexact=title,
                         defaults={
@@ -86,7 +86,7 @@ class ListingViewSet(viewsets.ModelViewSet):
                         }
                     )
 
-                    # Create Listing
+
                     Listing.objects.create(
                         listed_by=request.user,
                         textbook=textbook,
@@ -97,7 +97,7 @@ class ListingViewSet(viewsets.ModelViewSet):
                     )
                     added_count += 1
 
-            # 2. Handle CSV (.csv)
+
             elif file.name.endswith('.csv'):
                 try:
                     decoded_file = file.read().decode('utf-8-sig')
@@ -108,7 +108,7 @@ class ListingViewSet(viewsets.ModelViewSet):
                 io_string = io.StringIO(decoded_file)
                 reader = csv.DictReader(io_string)
                 
-                # Normalize headers
+
                 if reader.fieldnames:
                     reader.fieldnames = [name.strip().lower() for name in reader.fieldnames]
 
@@ -346,7 +346,7 @@ class MyBookListsView(viewsets.ModelViewSet):
         if not title:
             return Response({'error': 'Title is required'}, status=400)
 
-        # Smartly find or create the textbook
+
         textbook, created = Textbook.objects.get_or_create(
             title__iexact=title,
             defaults={
@@ -357,10 +357,10 @@ class MyBookListsView(viewsets.ModelViewSet):
             }
         )
         
-        # Add to the list
+
         book_list.textbooks.add(textbook)
         
-        # Return the updated list of books or the single book
+
         return Response(TextbookSerializer(textbook).data)
 
     @action(detail=True, methods=['post'])
@@ -566,7 +566,7 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
         Message.objects.create(
             conversation=conversation,
             sender=request.user,
-            content=f"✅ SYSTEM: I have accepted your swap offer for '{swap.requested_listing.textbook.title}'."
+            content=f"SYSTEM: I have accepted your swap offer for '{swap.requested_listing.textbook.title}'."
         )
         
         return Response({'status': 'Swap Accepted', 'conversation_id': conversation.id})
@@ -600,7 +600,7 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
         Message.objects.create(
             conversation=conversation,
             sender=receiver,
-            content=f"🚫 SYSTEM: I have rejected the swap offer for '{swap.requested_listing.textbook.title}'."
+            content=f"SYSTEM: I have rejected the swap offer for '{swap.requested_listing.textbook.title}'."
         )
         return Response({'status': 'Swap Rejected'})
 

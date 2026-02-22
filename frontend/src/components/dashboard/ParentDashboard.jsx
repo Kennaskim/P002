@@ -128,7 +128,7 @@ const ParentDashboard = ({ user }) => {
                             <span className={l.is_active ? 'text-green-600' : 'text-red-500'}>{l.is_active ? 'Active' : 'Sold'}</span>
                         </div>
                     ))}
-                    <Link to="/listings/create" className="text-green-600 text-sm mt-2 block">View All →</Link>
+                    {/* <Link to="/listings/create" className="text-green-600 text-sm mt-2 block">View All →</Link> */}
                 </div>
                 <div className="bg-white p-6 rounded shadow">
                     <h3 className="font-bold text-lg mb-4">Messages</h3>

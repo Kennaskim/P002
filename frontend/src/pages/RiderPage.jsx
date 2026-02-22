@@ -279,7 +279,7 @@ const RiderPage = () => {
                             </div>
 
                             <button onClick={handleCompleteClick} className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-green-700 transition active:scale-95">
-                                ✅ Mark Delivered
+                                Mark Delivered
                             </button>
                         </div>
                     </div>

@@ -15,7 +15,6 @@ const BookshopDashboard = ({ user }) => {
     const [deliveries, setDeliveries] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // TABS: 'inventory', 'orders', 'add'
     const [activeTab, setActiveTab] = useState('inventory');
     const [uploading, setUploading] = useState(false);
 
@@ -39,7 +38,6 @@ const BookshopDashboard = ({ user }) => {
         }
     };
 
-    // --- Actions ---
     const handleDelete = async (id) => {
         if (confirm("Remove this book from inventory?")) {
             await deleteListing(id);
@@ -92,12 +90,11 @@ const BookshopDashboard = ({ user }) => {
         }
     };
 
-    // --- Helper to get status badge ---
     const getStatusBadge = (status) => {
         const styles = {
             pending: 'bg-yellow-100 text-yellow-800',
             paid: 'bg-blue-100 text-blue-800',
-            shipped: 'bg-purple-100 text-purple-800', // Rider has it
+            shipped: 'bg-purple-100 text-purple-800',
             delivered: 'bg-green-100 text-green-800',
             cancelled: 'bg-red-100 text-red-800',
         };
@@ -108,7 +105,7 @@ const BookshopDashboard = ({ user }) => {
 
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-8">
-            {/* Header */}
+
             <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Bookshop Portal</h1>
@@ -136,7 +133,7 @@ const BookshopDashboard = ({ user }) => {
                 </div>
             </div>
 
-            {/* TAB 1: INVENTORY */}
+
             {activeTab === 'inventory' && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -171,7 +168,7 @@ const BookshopDashboard = ({ user }) => {
                 </div>
             )}
 
-            {/* TAB 2: ORDERS & TRACKING */}
+
             {activeTab === 'orders' && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -207,7 +204,7 @@ const BookshopDashboard = ({ user }) => {
                                         </div>
 
                                         <div className="flex gap-3 mt-3 md:mt-0">
-                                            {/* Messaging Button */}
+
                                             <button
                                                 onClick={() => navigate('/chat')}
                                                 className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm"
@@ -215,7 +212,7 @@ const BookshopDashboard = ({ user }) => {
                                                 💬 Chat with Buyer/Rider
                                             </button>
 
-                                            {/* Tracking Button (Only if active) */}
+
                                             {(delivery.status === 'shipped' || delivery.status === 'delivered') && (
                                                 <button
                                                     onClick={() => navigate(`/tracking/${delivery.id}`)}
@@ -227,7 +224,7 @@ const BookshopDashboard = ({ user }) => {
                                         </div>
                                     </div>
 
-                                    {/* Order Items */}
+
                                     <div className="bg-gray-50 p-4 rounded-lg">
                                         <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Items in Order</h4>
                                         <ul className="space-y-2">
@@ -244,7 +241,7 @@ const BookshopDashboard = ({ user }) => {
                                         </div>
                                     </div>
 
-                                    {/* Rider Info */}
+
                                     {delivery.rider && (
                                         <div className="mt-4 flex items-center gap-2 text-sm text-gray-600 bg-yellow-50 p-2 rounded border border-yellow-100 inline-block">
                                             <span>🏍️ Rider: <strong>{delivery.rider.username}</strong> ({delivery.rider_phone})</span>
@@ -257,7 +254,7 @@ const BookshopDashboard = ({ user }) => {
                 </div>
             )}
 
-            {/* TAB 3: ADD STOCK */}
+
             {activeTab === 'add' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">

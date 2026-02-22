@@ -43,7 +43,7 @@ def get_delivery_cost(pickup_address, delivery_address, is_swap=False):
         distance_km = distance_meters / 1000
 
         base_fee = 50 
-        cost_per_km = 3
+        cost_per_km = 2
         
         calc_distance = distance_km * 2 if is_swap else distance_km
         
