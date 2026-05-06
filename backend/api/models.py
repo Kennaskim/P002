@@ -1,13 +1,24 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.db.models import Avg
+from django.utils.translation import gettext_lazy as _
+
+class BaseModel(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False, db_index=True) # Soft delete
+
+    class Meta:
+        abstract = True
 
 class User(AbstractUser):
     USER_TYPE_CHOICES= (
-        ('parent', 'Parent/Guardian'),
-        ('school', 'School Administrator'),
-        ('bookshop', 'Bookshop Owner'),
-        ('rider', 'Rider'),
+        ('parent', _('Parent/Guardian')),
+        ('school', _('School Administrator')),
+        ('bookshop', _('Bookshop Owner')),
+        ('rider', _('Rider')),
     )
 
     email = models.EmailField(unique=True)
@@ -31,8 +42,8 @@ class User(AbstractUser):
         self.review_count = 0
       self.save() 
 
-class Textbook(models.Model):
-    title = models.CharField(max_length=200)
+class Textbook(BaseModel):
+    title = models.CharField(max_length=200)    
     author = models.CharField(max_length=200, blank=True)
     isbn = models.CharField(max_length=13, unique=True, blank=True, null=True)
     grade = models.CharField(max_length=50) 
@@ -43,15 +54,15 @@ class Textbook(models.Model):
     def __str__(self):
         return f"{self.title} (Grade {self.grade})" 
 
-class Listing(models.Model):
+class Listing(BaseModel):
     LISTING_TYPE_CHOICES = (
-        ('sell', 'For Sale'),
-        ('exchange', 'For Exchange'),
+        ('sell', _('For Sale')),
+        ('exchange', _('For Exchange')),
     )
     CONDITION_CHOICES = (
-        ('new', 'New'),
-        ('good', 'Good'),
-        ('fair', 'Fair'),
+        ('new', _('New')),
+        ('good', _('Good')),
+        ('fair', _('Fair')),
     )
 
     listed_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='listings')
@@ -67,7 +78,7 @@ class Listing(models.Model):
     def __str__(self):
         return f"Listing for {self.textbook.title}"
 
-class BookshopProfile(models.Model):
+class BookshopProfile(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bookshop_profile')
     shop_name = models.CharField(max_length=255)
     address = models.CharField(max_length=255)
@@ -77,7 +88,7 @@ class BookshopProfile(models.Model):
     def __str__(self):
         return self.shop_name
 
-class SchoolProfile(models.Model):
+class SchoolProfile(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='school_profile')
     school_name = models.CharField(max_length=255)
     address = models.CharField(max_length=255)
@@ -85,7 +96,7 @@ class SchoolProfile(models.Model):
     def __str__(self):
         return self.school_name
 
-class BookList(models.Model):
+class BookList(BaseModel):
     school = models.ForeignKey(SchoolProfile, on_delete=models.CASCADE, related_name='book_lists')
     grade = models.CharField(max_length=50)
     academic_year = models.CharField(max_length=20, help_text="e.g., 2024-2025")
@@ -94,7 +105,7 @@ class BookList(models.Model):
     def __str__(self):
         return f"Book List for {self.grade} ({self.academic_year}) - {self.school.school_name}"
 
-class Review(models.Model):
+class Review(BaseModel):
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='reviews')
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_given')
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_received')
@@ -109,7 +120,7 @@ class Review(models.Model):
     def __str__(self):
         return f"Review by {self.reviewer.username} for {self.seller.username} ({self.rating} stars)"
 
-class Conversation(models.Model):
+class Conversation(BaseModel):
     participants = models.ManyToManyField(User, related_name='conversations')
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='conversations', null=True, blank=True)
     delivery = models.ForeignKey('Delivery', on_delete=models.CASCADE, related_name='conversations', null=True, blank=True)
@@ -119,7 +130,7 @@ class Conversation(models.Model):
     def __str__(self):
         return f"Conversation {self.id}-{self.listing}"
 
-class Message(models.Model):
+class Message(BaseModel):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     content = models.TextField()
@@ -132,14 +143,14 @@ class Message(models.Model):
     def __str__(self):
         return f"Message from {self.sender.username}"
 
-class Cart(models.Model):
+class Cart(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Cart for {self.user.username}"
 
-class CartItem(models.Model):
+class CartItem(BaseModel):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
     added_at = models.DateTimeField(auto_now_add=True)
@@ -150,7 +161,7 @@ class CartItem(models.Model):
     def __str__(self):
         return f"{self.listing.textbook.title} in {self.cart.user.username}'s cart"
 
-class SwapRequest(models.Model):
+class SwapRequest(BaseModel):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
@@ -171,7 +182,7 @@ class SwapRequest(models.Model):
     def __str__(self):
         return f"{self.sender.username} offers {self.offered_listing.textbook.title} for {self.requested_listing.textbook.title}"
 
-class Order(models.Model):
+class Order(BaseModel):
     buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE) 
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
@@ -180,7 +191,7 @@ class Order(models.Model):
     def __str__(self):
         return f"Order {self.id} - {self.listing.textbook.title}"
 
-class Delivery(models.Model):
+class Delivery(BaseModel):
     STATUS_CHOICES = [
         ('pending', 'Pending Payment'),
         ('paid', 'Processing'),
@@ -210,7 +221,7 @@ class Delivery(models.Model):
     def __str__(self):
         return f"Delivery {self.tracking_code or 'Pending'}"
 
-class Payment(models.Model):
+class Payment(BaseModel):
     PAYMENT_METHOD_CHOICES = (
         ('mpesa', 'M-Pesa'),
         ('card', 'Credit(Paystack)'),
@@ -230,7 +241,7 @@ class Payment(models.Model):
     def __str__(self):
         return f"Payment {self.transaction_code or self.paystack_ref} - {self.amount}"
 
-class Wallet(models.Model):
+class Wallet(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='wallet')
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     last_updated = models.DateTimeField(auto_now=True)
@@ -238,7 +249,7 @@ class Wallet(models.Model):
     def __str__(self):
         return f"{self.user.username}'s Wallet (KSh {self.balance})"
 
-class WalletTransaction(models.Model):
+class WalletTransaction(BaseModel):
     TRANSACTION_TYPES = (
         ('credit', 'Credit (Earnings)'),
         ('debit', 'Debit (Withdrawal)'),

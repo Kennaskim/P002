@@ -60,6 +60,9 @@ class ListingViewSet(viewsets.ModelViewSet):
     def bulk_upload(self, request):
         file = request.FILES.get('file')
         if not file: return Response({'error': 'No file uploaded'}, status=400)
+
+        if file.size > 5 * 1024 * 1024:
+            return Response({'error': 'File size exceeds 5MB limit'}, status=400)
         
         added_count = 0
         try:
@@ -617,8 +620,8 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         'swap__receiver', 
         'rider'
     ).prefetch_related(
-        'orders__listing__listed_by', 
-        'orders__buyer'
+        'orders__listing__listed_by',
+        'orders__buyer',
     )
 
         if user.user_type == 'rider':
