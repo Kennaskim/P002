@@ -1,0 +1,33 @@
+{
+  "name": "textbook_exchange",
+  "version": "1.0.0",
+  "description": "Second-Hand School Textbook Exchange System",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kennaskim/P002.git"
+  },
+  "keywords": [],
+  "author": "Kennas Kimaita Gikundi",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Kennaskim/P002/issues"
+  },
+  "homepage": "https://github.com/Kennaskim/P002#readme",
+  "build": {
+    "appId": "com.textbook.exchange",
+    "win": {
+      "target": "nsis"
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.0.0",
+    "electron-builder": "^26.8.1"
+  }
+}
