@@ -1,4 +1,4 @@
-# EduSwap: Multi-Sided Educational Logistics & Exchange Marketplace
+# Textbook-exchange-platform: Multi-Sided Educational Logistics & Exchange Marketplace
 
 A full-stack, multi-tenant logistical marketplace built to solve regional educational supply friction. EduSwap connects peer-to-peer textbook swappers, verified retail bookshops, academic institutions, and third-party delivery riders into a single synchronized platform[cite: 1, 2].
 
